@@ -102,37 +102,34 @@
             const dateSelect = document.getElementById('imageDate');
             dateSelect.innerHTML = ''; // Clear existing options
 
-            streetViewService.getPhotos({
-                location: panorama.getPosition(),
-                radius: 50,
-                source: google.maps.StreetViewSource.OUTDOOR
-            }).then((data) => {
-                const photos = data.photos;
-                if (photos && photos.length > 0) {
-                    photos.forEach((photo, index) => {
+            streetViewService.getPanorama({ location: panorama.getPosition(), radius: 50 }, function(data, status) {
+                if (status === google.maps.StreetViewStatus.OK) {
+                    if (data.time && data.time.length > 0) {
+                        data.time.forEach((timestamp, index) => {
+                            const option = document.createElement('option');
+                            option.value = data.pano;
+                            const date = new Date(timestamp);
+                            option.textContent = date.toLocaleDateString();
+                            dateSelect.appendChild(option);
+
+                            if (index === 0) {
+                                panorama.setPano(data.pano);
+                            }
+                        });
+
+                        // Add event listener to date selector
+                        dateSelect.addEventListener('change', function() {
+                            const selectedPano = this.value;
+                            panorama.setPano(selectedPano);
+                        });
+                    } else {
                         const option = document.createElement('option');
-                        option.value = photo.pano;
-                        const date = new Date(photo.timeStamp);
-                        option.textContent = date.toLocaleDateString();
+                        option.textContent = 'No historical imagery available';
                         dateSelect.appendChild(option);
-
-                        if (index === 0) {
-                            panorama.setPano(photo.pano);
-                        }
-                    });
-
-                    // Add event listener to date selector
-                    dateSelect.addEventListener('change', function() {
-                        const selectedPano = this.value;
-                        panorama.setPano(selectedPano);
-                    });
+                    }
                 } else {
-                    const option = document.createElement('option');
-                    option.textContent = 'No historical imagery available';
-                    dateSelect.appendChild(option);
+                    console.error('Street View data not found for this location.');
                 }
-            }).catch((error) => {
-                console.error('Error fetching Street View data:', error);
             });
         }
 

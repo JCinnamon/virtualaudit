@@ -3,15 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Virtual Audit Instrument with Historical Imagery</title>
+    <title>Virtual Audit Instrument with Multiple Observations</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
     <style>
         #map, #pano {
             height: 400px;
             width: 100%;
         }
-        #form, #dateSelector {
+        #form, #dateSelector, #buttons {
             margin-top: 20px;
+        }
+        #observationCount {
+            margin-top: 10px;
+            font-weight: bold;
         }
     </style>
 </head>
@@ -40,16 +44,21 @@
         </select><br><br>
         <label for="notes">Notes:</label><br>
         <textarea id="notes" name="notes" rows="4" cols="50"></textarea><br><br>
-        <button type="submit">Submit</button>
     </form>
+    <div id="buttons">
+        <button id="recordData">Record Data</button>
+        <button id="downloadDataset">Download Dataset</button>
+    </div>
+    <div id="observationCount"></div>
 
     <script>
         let map, panorama, drawingManager;
         let selectedArea;
         let streetViewService;
+        let observations = [];
 
         function initMap() {
-            const defaultLocation = { lat: 49.886324, lng: -119.493454 }; // New York City
+            const defaultLocation = { lat: 49.886324, lng: -119.493454 }; // Kelowna
 
             map = new google.maps.Map(document.getElementById("map"), {
                 center: defaultLocation,
@@ -89,18 +98,21 @@
 
             streetViewService = new google.maps.StreetViewService();
 
-            // Add listener for pano_changed event
             google.maps.event.addListener(panorama, 'position_changed', function() {
                 updateImageDateSelector();
             });
 
-            // Initial update of image date selector
             updateImageDateSelector();
+            loadObservations();
+            updateObservationCount();
+
+            document.getElementById('recordData').addEventListener('click', recordObservation);
+            document.getElementById('downloadDataset').addEventListener('click', downloadDataset);
         }
 
         function updateImageDateSelector() {
             const dateSelect = document.getElementById('imageDate');
-            dateSelect.innerHTML = ''; // Clear existing options
+            dateSelect.innerHTML = '';
 
             const request = {
                 location: panorama.getPosition(),
@@ -114,7 +126,6 @@
                         data.time.forEach((timestamp, index) => {
                             const option = document.createElement('option');
                             option.value = data.location.pano;
-                            // Convert timestamp to milliseconds if it's in seconds
                             const date = new Date(timestamp * 1000);
                             option.textContent = date.toLocaleDateString();
                             dateSelect.appendChild(option);
@@ -124,9 +135,7 @@
                             }
                         });
 
-                        // Remove previous event listeners
                         dateSelect.removeEventListener('change', dateSelectChangeHandler);
-                        // Add new event listener
                         dateSelect.addEventListener('change', dateSelectChangeHandler);
                     } else {
                         const option = document.createElement('option');
@@ -144,10 +153,9 @@
             panorama.setPano(selectedPano);
         }
 
-        document.getElementById('form').addEventListener('submit', function(e) {
-            e.preventDefault();
-            const formData = new FormData(e.target);
-            const data = {
+        function recordObservation() {
+            const formData = new FormData(document.getElementById('form'));
+            const observation = {
                 feature: formData.get('feature'),
                 condition: formData.get('condition'),
                 notes: formData.get('notes'),
@@ -158,26 +166,44 @@
                 imageDate: document.getElementById('imageDate').options[document.getElementById('imageDate').selectedIndex].textContent
             };
 
-            // Convert data to CSV
-            const csv = Papa.unparse([data]);
+            observations.push(observation);
+            saveObservations();
+            updateObservationCount();
 
-            // Create a Blob with the CSV data
+            // Clear form
+            document.getElementById('form').reset();
+        }
+
+        function downloadDataset() {
+            const csv = Papa.unparse(observations);
             const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-
-            // Create a download link and trigger the download
             const link = document.createElement("a");
             if (link.download !== undefined) {
                 const url = URL.createObjectURL(blob);
                 link.setAttribute("href", url);
-                link.setAttribute("download", "audit_data.csv");
+                link.setAttribute("download", "virtual_audit_dataset.csv");
                 link.style.visibility = 'hidden';
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
             }
-        });
+        }
 
-        // Load Google Maps API asynchronously
+        function saveObservations() {
+            localStorage.setItem('virtualAuditObservations', JSON.stringify(observations));
+        }
+
+        function loadObservations() {
+            const savedObservations = localStorage.getItem('virtualAuditObservations');
+            if (savedObservations) {
+                observations = JSON.parse(savedObservations);
+            }
+        }
+
+        function updateObservationCount() {
+            document.getElementById('observationCount').textContent = `Total Observations: ${observations.length}`;
+        }
+
         (function() {
             const script = document.createElement('script');
             script.src = 'https://maps.googleapis.com/maps/api/js?key=AIzaSyBNVN2mixyttHxNeZjX63A96vEMtx0Nmio&libraries=drawing&callback=initMap';

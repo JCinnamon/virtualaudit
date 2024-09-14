@@ -115,15 +115,13 @@
         });
 
         // Load Google Maps API asynchronously
-        function loadGoogleMapsAPI() {
+        (function() {
             const script = document.createElement('script');
             script.src = 'https://maps.googleapis.com/maps/api/js?key=AIzaSyBNVN2mixyttHxNeZjX63A96vEMtx0Nmio&libraries=drawing&callback=initMap';
             script.async = true;
             script.defer = true;
             document.head.appendChild(script);
-        }
-
-        window.onload = loadGoogleMapsAPI;
+        })();
     </script>
 </body>
 </html>

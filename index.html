@@ -49,7 +49,7 @@
         let streetViewService;
 
         function initMap() {
-            const defaultLocation = { lat: 49.886324, lng: -119.493454 }; // Kelowna
+            const defaultLocation = { lat: 49.886324, lng: -119.493454 }; // New York City
 
             map = new google.maps.Map(document.getElementById("map"), {
                 center: defaultLocation,
@@ -102,26 +102,32 @@
             const dateSelect = document.getElementById('imageDate');
             dateSelect.innerHTML = ''; // Clear existing options
 
-            streetViewService.getPanorama({ location: panorama.getPosition(), radius: 50 }, function(data, status) {
+            const request = {
+                location: panorama.getPosition(),
+                radius: 50,
+                source: google.maps.StreetViewSource.OUTDOOR
+            };
+
+            streetViewService.getPanorama(request, function(data, status) {
                 if (status === google.maps.StreetViewStatus.OK) {
                     if (data.time && data.time.length > 0) {
                         data.time.forEach((timestamp, index) => {
                             const option = document.createElement('option');
-                            option.value = data.pano;
-                            const date = new Date(timestamp);
+                            option.value = data.location.pano;
+                            // Convert timestamp to milliseconds if it's in seconds
+                            const date = new Date(timestamp * 1000);
                             option.textContent = date.toLocaleDateString();
                             dateSelect.appendChild(option);
 
                             if (index === 0) {
-                                panorama.setPano(data.pano);
+                                panorama.setPano(data.location.pano);
                             }
                         });
 
-                        // Add event listener to date selector
-                        dateSelect.addEventListener('change', function() {
-                            const selectedPano = this.value;
-                            panorama.setPano(selectedPano);
-                        });
+                        // Remove previous event listeners
+                        dateSelect.removeEventListener('change', dateSelectChangeHandler);
+                        // Add new event listener
+                        dateSelect.addEventListener('change', dateSelectChangeHandler);
                     } else {
                         const option = document.createElement('option');
                         option.textContent = 'No historical imagery available';
@@ -131,6 +137,11 @@
                     console.error('Street View data not found for this location.');
                 }
             });
+        }
+
+        function dateSelectChangeHandler() {
+            const selectedPano = this.value;
+            panorama.setPano(selectedPano);
         }
 
         document.getElementById('form').addEventListener('submit', function(e) {

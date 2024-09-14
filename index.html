@@ -3,53 +3,90 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Virtual Audit Instrument with Multiple Observations</title>
+    <title>Virtual Audit Instrument</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
     <style>
-        #map, #pano {
-            height: 400px;
-            width: 100%;
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            font-family: Arial, sans-serif;
+        }
+        .container {
+            display: grid;
+            grid-template-columns: 30% 70%;
+            grid-template-rows: 60% 40%;
+            height: 100vh;
+        }
+        #controlArea {
+            grid-column: 1;
+            grid-row: 1;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        #map {
+            grid-column: 1;
+            grid-row: 2;
+        }
+        #pano {
+            grid-column: 2;
+            grid-row: 1 / span 2;
         }
         #form, #dateSelector, #buttons {
-            margin-top: 20px;
+            margin-bottom: 20px;
         }
         #observationCount {
             margin-top: 10px;
             font-weight: bold;
         }
+        h1 {
+            margin-top: 0;
+        }
+        select, textarea {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        button {
+            margin-right: 10px;
+        }
     </style>
 </head>
 <body>
-    <div id="map"></div>
-    <div id="pano"></div>
-    <div id="dateSelector">
-        <label for="imageDate">Select Image Date:</label>
-        <select id="imageDate"></select>
+    <div class="container">
+        <div id="controlArea">
+            <h1>Virtual Audit Instrument</h1>
+            <div id="dateSelector">
+                <label for="imageDate">Select Image Date:</label>
+                <select id="imageDate"></select>
+            </div>
+            <form id="form">
+                <h2>Record Built Environment Features</h2>
+                <label for="feature">Feature Type:</label>
+                <select id="feature" name="feature">
+                    <option value="building">Building</option>
+                    <option value="road">Road</option>
+                    <option value="park">Park</option>
+                    <option value="other">Other</option>
+                </select>
+                <label for="condition">Condition:</label>
+                <select id="condition" name="condition">
+                    <option value="excellent">Excellent</option>
+                    <option value="good">Good</option>
+                    <option value="fair">Fair</option>
+                    <option value="poor">Poor</option>
+                </select>
+                <label for="notes">Notes:</label>
+                <textarea id="notes" name="notes" rows="4"></textarea>
+            </form>
+            <div id="buttons">
+                <button id="recordData">Record Data</button>
+                <button id="downloadDataset">Download Dataset</button>
+            </div>
+            <div id="observationCount"></div>
+        </div>
+        <div id="map"></div>
+        <div id="pano"></div>
     </div>
-    <form id="form">
-        <h2>Record Built Environment Features</h2>
-        <label for="feature">Feature Type:</label>
-        <select id="feature" name="feature">
-            <option value="building">Building</option>
-            <option value="road">Road</option>
-            <option value="park">Park</option>
-            <option value="other">Other</option>
-        </select><br><br>
-        <label for="condition">Condition:</label>
-        <select id="condition" name="condition">
-            <option value="excellent">Excellent</option>
-            <option value="good">Good</option>
-            <option value="fair">Fair</option>
-            <option value="poor">Poor</option>
-        </select><br><br>
-        <label for="notes">Notes:</label><br>
-        <textarea id="notes" name="notes" rows="4" cols="50"></textarea><br><br>
-    </form>
-    <div id="buttons">
-        <button id="recordData">Record Data</button>
-        <button id="downloadDataset">Download Dataset</button>
-    </div>
-    <div id="observationCount"></div>
 
     <script>
         let map, panorama, drawingManager;
@@ -58,7 +95,7 @@
         let observations = [];
 
         function initMap() {
-            const defaultLocation = { lat: 49.886324, lng: -119.493454 }; // Kelowna
+            const defaultLocation = { lat: 49.886324, lng: -119.493484 }; // Kelowna
 
             map = new google.maps.Map(document.getElementById("map"), {
                 center: defaultLocation,

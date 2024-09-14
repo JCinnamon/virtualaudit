@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Virtual Audit Instrument</title>
-    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBNVN2mixyttHxNeZjX63A96vEMtx0Nmio&libraries=drawing"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
     <style>
         #map, #pano {
@@ -115,7 +114,16 @@
             }
         });
 
-        window.onload = initMap;
+        // Load Google Maps API asynchronously
+        function loadGoogleMapsAPI() {
+            const script = document.createElement('script');
+            script.src = 'https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&libraries=drawing&callback=initMap';
+            script.async = true;
+            script.defer = true;
+            document.head.appendChild(script);
+        }
+
+        window.onload = loadGoogleMapsAPI;
     </script>
 </body>
 </html>

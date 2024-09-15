@@ -94,6 +94,7 @@
         let streetViewService;
         let observations = [];
         let isChangingDate = false;
+        let currentPanoData = null;
 
         function initMap() {
             const defaultLocation = { lat: 49.886324, lng: -119.493484 }; // Kelowna
@@ -136,9 +137,11 @@
 
             streetViewService = new google.maps.StreetViewService();
 
-            google.maps.event.addListener(panorama, 'position_changed', function() {
+            google.maps.event.addListener(panorama, 'pano_changed', function() {
                 if (!isChangingDate) {
                     updateImageDateSelector();
+                } else {
+                    syncDateSelectorWithPanorama();
                 }
             });
 
@@ -163,6 +166,7 @@
             streetViewService.getPanorama(request, function(data, status) {
                 console.log("StreetViewService response:", data);
                 if (status === google.maps.StreetViewStatus.OK) {
+                    currentPanoData = data;
                     if (data.time && data.time.length > 0) {
                         console.log("Time data:", data.time);
                         data.time.forEach((timeObj, index) => {
@@ -178,11 +182,9 @@
                             console.log(`Resulting date string:`, dateString);
                             option.textContent = dateString;
                             dateSelect.appendChild(option);
-
-                            if (index === 0) {
-                                dateSelect.value = timeObj.pano;
-                            }
                         });
+
+                        syncDateSelectorWithPanorama();
 
                         dateSelect.removeEventListener('change', dateSelectChangeHandler);
                         dateSelect.addEventListener('change', dateSelectChangeHandler);
@@ -198,12 +200,25 @@
             });
         }
 
+        function syncDateSelectorWithPanorama() {
+            const dateSelect = document.getElementById('imageDate');
+            const currentPano = panorama.getPano();
+            
+            for (let i = 0; i < dateSelect.options.length; i++) {
+                if (dateSelect.options[i].value === currentPano) {
+                    dateSelect.selectedIndex = i;
+                    break;
+                }
+            }
+        }
+
         function dateSelectChangeHandler() {
             const selectedPano = this.value;
             isChangingDate = true;
             panorama.setPano(selectedPano);
             setTimeout(() => {
                 isChangingDate = false;
+                syncDateSelectorWithPanorama();
             }, 100); // Reset the flag after a short delay
         }
 

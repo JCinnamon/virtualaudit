@@ -147,7 +147,7 @@
             document.getElementById('downloadDataset').addEventListener('click', downloadDataset);
         }
 
-        function updateImageDateSelector() {
+ function updateImageDateSelector() {
     const dateSelect = document.getElementById('imageDate');
     dateSelect.innerHTML = '';
 
@@ -158,29 +158,35 @@
     };
 
     streetViewService.getPanorama(request, function(data, status) {
+        console.log("StreetViewService response:", data);
         if (status === google.maps.StreetViewStatus.OK) {
             if (data.time && data.time.length > 0) {
+                console.log("Time data:", data.time);
                 data.time.forEach((timestamp, index) => {
+                    console.log(`Processing timestamp ${index}:`, timestamp);
                     const option = document.createElement('option');
                     option.value = data.location.pano;
                     
-                    // Convert timestamp to date string
-                    let date;
-                    if (typeof timestamp === 'number') {
-                        // If timestamp is a number (unix timestamp), multiply by 1000 for milliseconds
-                        date = new Date(timestamp * 1000);
-                    } else {
-                        // If timestamp is already a Date object or a date string
-                        date = new Date(timestamp);
+                    let dateString = 'Unknown Date';
+                    if (timestamp && timestamp.getFullYear) {
+                        // If timestamp is a Date object
+                        dateString = timestamp.toLocaleDateString();
+                    } else if (typeof timestamp === 'number') {
+                        // If timestamp is a number (unix timestamp in milliseconds)
+                        const date = new Date(timestamp);
+                        if (!isNaN(date.getTime())) {
+                            dateString = date.toLocaleDateString();
+                        }
+                    } else if (typeof timestamp === 'string') {
+                        // If timestamp is a string, try parsing it
+                        const date = new Date(timestamp);
+                        if (!isNaN(date.getTime())) {
+                            dateString = date.toLocaleDateString();
+                        }
                     }
                     
-                    if (isNaN(date.getTime())) {
-                        // If date is invalid, use a placeholder
-                        option.textContent = 'Unknown Date';
-                    } else {
-                        option.textContent = date.toLocaleDateString();
-                    }
-                    
+                    console.log(`Resulting date string:`, dateString);
+                    option.textContent = dateString;
                     dateSelect.appendChild(option);
 
                     if (index === 0) {
@@ -191,6 +197,7 @@
                 dateSelect.removeEventListener('change', dateSelectChangeHandler);
                 dateSelect.addEventListener('change', dateSelectChangeHandler);
             } else {
+                console.log("No time data available");
                 const option = document.createElement('option');
                 option.textContent = 'No historical imagery available';
                 dateSelect.appendChild(option);

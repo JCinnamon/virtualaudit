@@ -148,42 +148,58 @@
         }
 
         function updateImageDateSelector() {
-            const dateSelect = document.getElementById('imageDate');
-            dateSelect.innerHTML = '';
+    const dateSelect = document.getElementById('imageDate');
+    dateSelect.innerHTML = '';
 
-            const request = {
-                location: panorama.getPosition(),
-                radius: 50,
-                source: google.maps.StreetViewSource.OUTDOOR
-            };
+    const request = {
+        location: panorama.getPosition(),
+        radius: 50,
+        source: google.maps.StreetViewSource.OUTDOOR
+    };
 
-            streetViewService.getPanorama(request, function(data, status) {
-                if (status === google.maps.StreetViewStatus.OK) {
-                    if (data.time && data.time.length > 0) {
-                        data.time.forEach((timestamp, index) => {
-                            const option = document.createElement('option');
-                            option.value = data.location.pano;
-                            const date = new Date(timestamp * 1000);
-                            option.textContent = date.toLocaleDateString();
-                            dateSelect.appendChild(option);
-
-                            if (index === 0) {
-                                panorama.setPano(data.location.pano);
-                            }
-                        });
-
-                        dateSelect.removeEventListener('change', dateSelectChangeHandler);
-                        dateSelect.addEventListener('change', dateSelectChangeHandler);
+    streetViewService.getPanorama(request, function(data, status) {
+        if (status === google.maps.StreetViewStatus.OK) {
+            if (data.time && data.time.length > 0) {
+                data.time.forEach((timestamp, index) => {
+                    const option = document.createElement('option');
+                    option.value = data.location.pano;
+                    
+                    // Convert timestamp to date string
+                    let date;
+                    if (typeof timestamp === 'number') {
+                        // If timestamp is a number (unix timestamp), multiply by 1000 for milliseconds
+                        date = new Date(timestamp * 1000);
                     } else {
-                        const option = document.createElement('option');
-                        option.textContent = 'No historical imagery available';
-                        dateSelect.appendChild(option);
+                        // If timestamp is already a Date object or a date string
+                        date = new Date(timestamp);
                     }
-                } else {
-                    console.error('Street View data not found for this location.');
-                }
-            });
+                    
+                    if (isNaN(date.getTime())) {
+                        // If date is invalid, use a placeholder
+                        option.textContent = 'Unknown Date';
+                    } else {
+                        option.textContent = date.toLocaleDateString();
+                    }
+                    
+                    dateSelect.appendChild(option);
+
+                    if (index === 0) {
+                        panorama.setPano(data.location.pano);
+                    }
+                });
+
+                dateSelect.removeEventListener('change', dateSelectChangeHandler);
+                dateSelect.addEventListener('change', dateSelectChangeHandler);
+            } else {
+                const option = document.createElement('option');
+                option.textContent = 'No historical imagery available';
+                dateSelect.appendChild(option);
+            }
+        } else {
+            console.error('Street View data not found for this location.');
         }
+    });
+}
 
         function dateSelectChangeHandler() {
             const selectedPano = this.value;

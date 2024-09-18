@@ -95,6 +95,7 @@
         let observations = [];
         let isChangingDate = false;
         let currentPanoData = null;
+        let isUpdatingSelector = false;
 
         function initMap() {
             const defaultLocation = { lat: 49.886324, lng: -119.493484 }; // Kelowna
@@ -138,13 +139,14 @@
             streetViewService = new google.maps.StreetViewService();
 
             google.maps.event.addListener(panorama, 'position_changed', function() {
-                if (!isChangingDate) {
+                if (!isChangingDate && !isUpdatingSelector) {
+                    isUpdatingSelector = true;
                     updateImageDateSelector();
                 }
             });
 
             google.maps.event.addListener(panorama, 'pano_changed', function() {
-                if (!isChangingDate) {
+                if (!isChangingDate && !isUpdatingSelector) {
                     syncDateSelectorWithPanorama();
                 }
             });
@@ -173,19 +175,23 @@
                     currentPanoData = data;
                     if (data.time && data.time.length > 0) {
                         console.log("Time data:", data.time);
+                        const uniquePanos = new Set();
                         data.time.forEach((timeObj, index) => {
-                            console.log(`Processing timestamp ${index}:`, timeObj);
-                            const option = document.createElement('option');
-                            option.value = timeObj.pano;
-                            
-                            let dateString = 'Unknown Date';
-                            if (timeObj.lu && timeObj.lu instanceof Date) {
-                                dateString = timeObj.lu.toLocaleDateString();
+                            if (!uniquePanos.has(timeObj.pano)) {
+                                console.log(`Processing timestamp ${index}:`, timeObj);
+                                const option = document.createElement('option');
+                                option.value = timeObj.pano;
+                                
+                                let dateString = 'Unknown Date';
+                                if (timeObj.lu && timeObj.lu instanceof Date) {
+                                    dateString = timeObj.lu.toLocaleDateString();
+                                }
+                                
+                                console.log(`Resulting date string:`, dateString);
+                                option.textContent = dateString;
+                                dateSelect.appendChild(option);
+                                uniquePanos.add(timeObj.pano);
                             }
-                            
-                            console.log(`Resulting date string:`, dateString);
-                            option.textContent = dateString;
-                            dateSelect.appendChild(option);
                         });
 
                         syncDateSelectorWithPanorama();
@@ -201,6 +207,7 @@
                 } else {
                     console.error('Street View data not found for this location.');
                 }
+                isUpdatingSelector = false;
             });
         }
 
@@ -216,7 +223,10 @@
             }
 
             // If we didn't find a matching pano, update the selector
-            updateImageDateSelector();
+            if (!isUpdatingSelector) {
+                isUpdatingSelector = true;
+                updateImageDateSelector();
+            }
         }
 
         function dateSelectChangeHandler() {

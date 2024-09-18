@@ -137,10 +137,14 @@
 
             streetViewService = new google.maps.StreetViewService();
 
-            google.maps.event.addListener(panorama, 'pano_changed', function() {
+            google.maps.event.addListener(panorama, 'position_changed', function() {
                 if (!isChangingDate) {
                     updateImageDateSelector();
-                } else {
+                }
+            });
+
+            google.maps.event.addListener(panorama, 'pano_changed', function() {
+                if (!isChangingDate) {
                     syncDateSelectorWithPanorama();
                 }
             });
@@ -207,9 +211,12 @@
             for (let i = 0; i < dateSelect.options.length; i++) {
                 if (dateSelect.options[i].value === currentPano) {
                     dateSelect.selectedIndex = i;
-                    break;
+                    return;
                 }
             }
+
+            // If we didn't find a matching pano, update the selector
+            updateImageDateSelector();
         }
 
         function dateSelectChangeHandler() {
@@ -218,7 +225,6 @@
             panorama.setPano(selectedPano);
             setTimeout(() => {
                 isChangingDate = false;
-                syncDateSelectorWithPanorama();
             }, 100); // Reset the flag after a short delay
         }
 

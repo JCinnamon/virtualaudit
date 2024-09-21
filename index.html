@@ -97,6 +97,7 @@
         let currentPanoData = null;
         let isUpdatingSelector = false;
         let currentPanoId = null;
+        let selectedDate = null;
 
         function initMap() {
             const defaultLocation = { lat: 49.886324, lng: -119.493484 }; // Kelowna
@@ -167,25 +168,31 @@
                 if (status === google.maps.StreetViewStatus.OK) {
                     currentPanoData = data;
                     if (data.time && data.time.length > 0) {
-                        const uniquePanos = new Set();
                         data.time.forEach((timeObj) => {
-                            if (!uniquePanos.has(timeObj.pano)) {
-                                const option = document.createElement('option');
-                                option.value = timeObj.pano;
-                                
-                                let dateString = 'Unknown Date';
-                                if (timeObj.tu) {
-                                    const date = new Date(timeObj.tu);
-                                    dateString = date.toLocaleDateString(undefined, { year: 'numeric', month: 'long' });
-                                }
-                                
-                                option.textContent = dateString;
-                                dateSelect.appendChild(option);
-                                uniquePanos.add(timeObj.pano);
+                            const option = document.createElement('option');
+                            option.value = timeObj.pano;
+                            
+                            let dateString = 'Unknown Date';
+                            if (timeObj.tu) {
+                                const date = new Date(timeObj.tu);
+                                dateString = date.toLocaleDateString(undefined, { year: 'numeric', month: 'long' });
+                            }
+                            
+                            option.textContent = dateString;
+                            dateSelect.appendChild(option);
+
+                            // If this date matches our selectedDate, select it
+                            if (selectedDate && dateString === selectedDate) {
+                                option.selected = true;
+                                panorama.setPano(timeObj.pano);
                             }
                         });
 
-                        syncDateSelectorWithPanorama();
+                        // If no date was selected, select the first one
+                        if (!selectedDate) {
+                            selectedDate = dateSelect.options[0].textContent;
+                            panorama.setPano(dateSelect.options[0].value);
+                        }
 
                         dateSelect.removeEventListener('change', dateSelectChangeHandler);
                         dateSelect.addEventListener('change', dateSelectChangeHandler);
@@ -205,25 +212,23 @@
             const dateSelect = document.getElementById('imageDate');
             const currentPano = panorama.getPano();
             
-            if (currentPano !== currentPanoId) {
-                currentPanoId = currentPano;
-                for (let i = 0; i < dateSelect.options.length; i++) {
-                    if (dateSelect.options[i].value === currentPano) {
-                        dateSelect.selectedIndex = i;
-                        break;
-                    }
+            for (let i = 0; i < dateSelect.options.length; i++) {
+                if (dateSelect.options[i].value === currentPano) {
+                    dateSelect.selectedIndex = i;
+                    selectedDate = dateSelect.options[i].textContent;
+                    break;
                 }
             }
         }
 
         function dateSelectChangeHandler() {
             const selectedPano = this.value;
+            selectedDate = this.options[this.selectedIndex].textContent;
             if (selectedPano !== panorama.getPano()) {
                 isChangingDate = true;
                 panorama.setPano(selectedPano);
                 setTimeout(() => {
                     isChangingDate = false;
-                    syncDateSelectorWithPanorama();
                 }, 100);
             }
         }

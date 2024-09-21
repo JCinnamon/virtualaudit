@@ -95,8 +95,7 @@
         let observations = [];
         let isChangingDate = false;
         let currentPanoData = null;
-        let isUpdatingSelector = false;
-        let currentPanoId = null;
+        let selectedDate = null;
 
         function initMap() {
             const defaultLocation = { lat: 49.886324, lng: -119.493484 }; // Kelowna
@@ -139,7 +138,7 @@
 
             streetViewService = new google.maps.StreetViewService();
 
-            google.maps.event.addListener(panorama, 'pano_changed', function() {
+            google.maps.event.addListener(panorama, 'position_changed', function() {
                 if (!isChangingDate) {
                     updateImageDateSelector();
                 }
@@ -167,25 +166,27 @@
                 if (status === google.maps.StreetViewStatus.OK) {
                     currentPanoData = data;
                     if (data.time && data.time.length > 0) {
-                        const uniquePanos = new Set();
                         data.time.forEach((timeObj) => {
-                            if (!uniquePanos.has(timeObj.pano)) {
-                                const option = document.createElement('option');
-                                option.value = timeObj.pano;
-                                
-                                let dateString = 'Unknown Date';
-                                if (timeObj.tu) {
-                                    const date = new Date(timeObj.tu);
-                                    dateString = date.toLocaleDateString(undefined, { year: 'numeric', month: 'long' });
-                                }
-                                
-                                option.textContent = dateString;
-                                dateSelect.appendChild(option);
-                                uniquePanos.add(timeObj.pano);
-                            }
+                            const option = document.createElement('option');
+                            option.value = timeObj.pano;
+                            
+                            const date = new Date(timeObj.tu);
+                            const dateString = date.toLocaleDateString(undefined, { year: 'numeric', month: 'long' });
+                            
+                            option.textContent = dateString;
+                            dateSelect.appendChild(option);
                         });
 
-                        syncDateSelectorWithPanorama();
+                        // Select the previously selected date if available, otherwise select the most recent
+                        const dateToSelect = selectedDate || dateSelect.options[0].textContent;
+                        for (let i = 0; i < dateSelect.options.length; i++) {
+                            if (dateSelect.options[i].textContent === dateToSelect) {
+                                dateSelect.selectedIndex = i;
+                                break;
+                            }
+                        }
+
+                        panorama.setPano(dateSelect.value);
 
                         dateSelect.removeEventListener('change', dateSelectChangeHandler);
                         dateSelect.addEventListener('change', dateSelectChangeHandler);
@@ -197,33 +198,17 @@
                 } else {
                     console.error('Street View data not found for this location.');
                 }
-                isUpdatingSelector = false;
             });
         }
 
-        function syncDateSelectorWithPanorama() {
-            const dateSelect = document.getElementById('imageDate');
-            const currentPano = panorama.getPano();
-            
-            if (currentPano !== currentPanoId) {
-                currentPanoId = currentPano;
-                for (let i = 0; i < dateSelect.options.length; i++) {
-                    if (dateSelect.options[i].value === currentPano) {
-                        dateSelect.selectedIndex = i;
-                        break;
-                    }
-                }
-            }
-        }
-
         function dateSelectChangeHandler() {
+            selectedDate = this.options[this.selectedIndex].textContent;
             const selectedPano = this.value;
             if (selectedPano !== panorama.getPano()) {
                 isChangingDate = true;
                 panorama.setPano(selectedPano);
                 setTimeout(() => {
                     isChangingDate = false;
-                    syncDateSelectorWithPanorama();
                 }, 100);
             }
         }

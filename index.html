@@ -158,7 +158,7 @@
             document.getElementById('recordData').addEventListener('click', recordObservation);
             document.getElementById('downloadDataset').addEventListener('click', downloadDataset);
         }
-
+        
 function updateImageDateSelector() {
     const dateSelect = document.getElementById('imageDate');
     dateSelect.innerHTML = '';
@@ -183,12 +183,9 @@ function updateImageDateSelector() {
                         option.value = timeObj.pano;
                         
                         let dateString = 'Unknown Date';
-                        if (timeObj.imageDate) {
-                            console.log(`imageDate found: ${timeObj.imageDate}`);
-                            dateString = timeObj.imageDate;
-                        } else if (timeObj.time) {
-                            console.log(`time found: ${timeObj.time}`);
-                            const date = new Date(timeObj.time * 1000);
+                        if (timeObj.tu) {
+                            console.log(`tu found: ${timeObj.tu}`);
+                            const date = new Date(timeObj.tu);
                             dateString = date.toLocaleDateString(undefined, { year: 'numeric', month: 'long' });
                         } else {
                             console.log(`No recognizable date format found in:`, JSON.stringify(timeObj, null, 2));

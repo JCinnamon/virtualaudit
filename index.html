@@ -96,6 +96,7 @@
         let isChangingDate = false;
         let currentPanoData = null;
         let selectedDate = null;
+        let isUpdatingPanorama = false;
 
         function initMap() {
             const defaultLocation = { lat: 49.886324, lng: -119.493484 }; // Kelowna
@@ -139,8 +140,12 @@
             streetViewService = new google.maps.StreetViewService();
 
             google.maps.event.addListener(panorama, 'position_changed', function() {
-                if (!isChangingDate) {
-                    updateImageDateSelector();
+                if (!isChangingDate && !isUpdatingPanorama) {
+                    isUpdatingPanorama = true;
+                    setTimeout(() => {
+                        updateImageDateSelector();
+                        isUpdatingPanorama = false;
+                    }, 500); // Wait for 500ms to let the panorama settle
                 }
             });
 
@@ -186,7 +191,9 @@
                             }
                         }
 
-                        panorama.setPano(dateSelect.value);
+                        if (!isChangingDate) {
+                            panorama.setPano(dateSelect.value);
+                        }
 
                         dateSelect.removeEventListener('change', dateSelectChangeHandler);
                         dateSelect.addEventListener('change', dateSelectChangeHandler);
@@ -266,7 +273,7 @@
 
         (function() {
             const script = document.createElement('script');
-            script.src = 'https://maps.googleapis.com/maps/api/js?key=AIzaSyBNVN2mixyttHxNeZjX63A96vEMtx0Nmio&libraries=drawing&callback=initMap';
+            script.src = 'https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&libraries=drawing&callback=initMap';
             script.async = true;
             script.defer = true;
             document.head.appendChild(script);

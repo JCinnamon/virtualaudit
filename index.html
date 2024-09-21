@@ -159,7 +159,7 @@
             document.getElementById('downloadDataset').addEventListener('click', downloadDataset);
         }
 
-      function updateImageDateSelector() {
+function updateImageDateSelector() {
     const dateSelect = document.getElementById('imageDate');
     dateSelect.innerHTML = '';
 
@@ -170,24 +170,28 @@
     };
 
     streetViewService.getPanorama(request, function(data, status) {
-        console.log("StreetViewService response:", data);
+        console.log("StreetViewService full response:", JSON.stringify(data, null, 2));
         if (status === google.maps.StreetViewStatus.OK) {
             currentPanoData = data;
             if (data.time && data.time.length > 0) {
-                console.log("Time data:", data.time);
+                console.log("Time data:", JSON.stringify(data.time, null, 2));
                 const uniquePanos = new Set();
                 data.time.forEach((timeObj, index) => {
+                    console.log(`Processing time object ${index}:`, JSON.stringify(timeObj, null, 2));
                     if (!uniquePanos.has(timeObj.pano)) {
-                        console.log(`Processing timestamp ${index}:`, timeObj);
                         const option = document.createElement('option');
                         option.value = timeObj.pano;
                         
                         let dateString = 'Unknown Date';
                         if (timeObj.imageDate) {
-                            // Parse the imageDate string (format: "YYYY-MM")
-                            const [year, month] = timeObj.imageDate.split('-');
-                            const date = new Date(year, month - 1); // month is 0-indexed in Date constructor
+                            console.log(`imageDate found: ${timeObj.imageDate}`);
+                            dateString = timeObj.imageDate;
+                        } else if (timeObj.time) {
+                            console.log(`time found: ${timeObj.time}`);
+                            const date = new Date(timeObj.time * 1000);
                             dateString = date.toLocaleDateString(undefined, { year: 'numeric', month: 'long' });
+                        } else {
+                            console.log(`No recognizable date format found in:`, JSON.stringify(timeObj, null, 2));
                         }
                         
                         console.log(`Resulting date string:`, dateString);

@@ -179,19 +179,12 @@ function updateImageDateSelector() {
                     option.value = timeObj.pano;
                     
                     let dateString = 'Unknown Date';
-                    if (timeObj.tu) {
-                        console.log(`tu property found: ${timeObj.tu}`);
-                        // Try parsing the date
-                        const date = new Date(timeObj.tu);
-                        console.log(`Parsed date:`, date);
-                        if (!isNaN(date.getTime())) {
-                            dateString = date.toLocaleDateString(undefined, { year: 'numeric', month: 'long' });
-                        } else {
-                            // If parsing fails, use the raw string
-                            dateString = timeObj.tu;
-                        }
+                    if (timeObj.ou) {
+                        console.log(`ou property found:`, timeObj.ou);
+                        // The ou property is already a Date object
+                        dateString = timeObj.ou.toLocaleDateString(undefined, { year: 'numeric', month: 'long' });
                     } else {
-                        console.log(`No tu property found in time object`);
+                        console.log(`No ou property found in time object`);
                     }
                     
                     console.log(`Resulting date string:`, dateString);

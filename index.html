@@ -168,25 +168,33 @@ function updateImageDateSelector() {
     };
 
     streetViewService.getPanorama(request, function(data, status) {
+        console.log("StreetViewService response:", data);
         if (status === google.maps.StreetViewStatus.OK) {
             currentPanoData = data;
             if (data.time && data.time.length > 0) {
-                data.time.forEach((timeObj) => {
+                console.log("Time data:", data.time);
+                data.time.forEach((timeObj, index) => {
+                    console.log(`Processing time object ${index}:`, timeObj);
                     const option = document.createElement('option');
                     option.value = timeObj.pano;
                     
                     let dateString = 'Unknown Date';
                     if (timeObj.tu) {
+                        console.log(`tu property found: ${timeObj.tu}`);
                         // Try parsing the date
                         const date = new Date(timeObj.tu);
+                        console.log(`Parsed date:`, date);
                         if (!isNaN(date.getTime())) {
                             dateString = date.toLocaleDateString(undefined, { year: 'numeric', month: 'long' });
                         } else {
                             // If parsing fails, use the raw string
                             dateString = timeObj.tu;
                         }
+                    } else {
+                        console.log(`No tu property found in time object`);
                     }
                     
+                    console.log(`Resulting date string:`, dateString);
                     option.textContent = dateString;
                     dateSelect.appendChild(option);
                 });
@@ -207,6 +215,7 @@ function updateImageDateSelector() {
                 dateSelect.removeEventListener('change', dateSelectChangeHandler);
                 dateSelect.addEventListener('change', dateSelectChangeHandler);
             } else {
+                console.log("No time data available");
                 const option = document.createElement('option');
                 option.textContent = 'No historical imagery available';
                 dateSelect.appendChild(option);

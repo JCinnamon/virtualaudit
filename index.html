@@ -54,17 +54,21 @@
 <body>
     <div class="container">
         <div id="controlArea">
-            <h1>Virtual Audit Instrument</h1>
+            <h1>Street View Virtual Audit</h1>
             <div id="dateSelector">
                 <label for="imageDate">Select Image Date:</label>
                 <select id="imageDate"></select>
             </div>
             <form id="form">
-                <h2>Record Built Environment Features</h2>
+                <h2>Record instances of urban change</h2>
+                <label for="group">Group name</label>
+                <textarea id="group" name="group" rows="1"></textarea>
                 <label for="feature">Feature Type:</label>
                 <select id="feature" name="feature">
                     <option value="building">Building</option>
-                    <option value="road">Road</option>
+                    <option value="street">Street</option>
+                    <option value="infrastructure"> Walk/bike infrastructure</option>
+                    <option value="public space">Public space</option>
                     <option value="park">Park</option>
                     <option value="other">Other</option>
                 </select>
@@ -75,7 +79,7 @@
                     <option value="fair">Fair</option>
                     <option value="poor">Poor</option>
                 </select>
-                <label for="notes">Notes:</label>
+                <label for="explanation">Explanation:</label>
                 <textarea id="notes" name="notes" rows="4"></textarea>
             </form>
             <div id="buttons">

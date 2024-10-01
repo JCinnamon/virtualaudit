@@ -157,56 +157,65 @@
             document.getElementById('downloadDataset').addEventListener('click', downloadDataset);
         }
 
-        function updateImageDateSelector() {
-            const dateSelect = document.getElementById('imageDate');
-            dateSelect.innerHTML = '';
+function updateImageDateSelector() {
+    const dateSelect = document.getElementById('imageDate');
+    dateSelect.innerHTML = '';
 
-            const request = {
-                location: panorama.getPosition(),
-                radius: 50,
-                source: google.maps.StreetViewSource.OUTDOOR
-            };
+    const request = {
+        location: panorama.getPosition(),
+        radius: 50,
+        source: google.maps.StreetViewSource.OUTDOOR
+    };
 
-            streetViewService.getPanorama(request, function(data, status) {
-                if (status === google.maps.StreetViewStatus.OK) {
-                    currentPanoData = data;
-                    if (data.time && data.time.length > 0) {
-                        data.time.forEach((timeObj) => {
-                            const option = document.createElement('option');
-                            option.value = timeObj.pano;
-                            
-                            const date = new Date(timeObj.tu);
-                            const dateString = date.toLocaleDateString(undefined, { year: 'numeric', month: 'long' });
-                            
-                            option.textContent = dateString;
-                            dateSelect.appendChild(option);
-                        });
-
-                        // Select the previously selected date if available, otherwise select the most recent
-                        const dateToSelect = selectedDate || dateSelect.options[0].textContent;
-                        for (let i = 0; i < dateSelect.options.length; i++) {
-                            if (dateSelect.options[i].textContent === dateToSelect) {
-                                dateSelect.selectedIndex = i;
-                                break;
-                            }
+    streetViewService.getPanorama(request, function(data, status) {
+        if (status === google.maps.StreetViewStatus.OK) {
+            currentPanoData = data;
+            if (data.time && data.time.length > 0) {
+                data.time.forEach((timeObj) => {
+                    const option = document.createElement('option');
+                    option.value = timeObj.pano;
+                    
+                    let dateString = 'Unknown Date';
+                    if (timeObj.tu) {
+                        // Try parsing the date
+                        const date = new Date(timeObj.tu);
+                        if (!isNaN(date.getTime())) {
+                            dateString = date.toLocaleDateString(undefined, { year: 'numeric', month: 'long' });
+                        } else {
+                            // If parsing fails, use the raw string
+                            dateString = timeObj.tu;
                         }
-
-                        if (!isChangingDate) {
-                            panorama.setPano(dateSelect.value);
-                        }
-
-                        dateSelect.removeEventListener('change', dateSelectChangeHandler);
-                        dateSelect.addEventListener('change', dateSelectChangeHandler);
-                    } else {
-                        const option = document.createElement('option');
-                        option.textContent = 'No historical imagery available';
-                        dateSelect.appendChild(option);
                     }
-                } else {
-                    console.error('Street View data not found for this location.');
+                    
+                    option.textContent = dateString;
+                    dateSelect.appendChild(option);
+                });
+
+                // Select the previously selected date if available, otherwise select the most recent
+                const dateToSelect = selectedDate || dateSelect.options[0].textContent;
+                for (let i = 0; i < dateSelect.options.length; i++) {
+                    if (dateSelect.options[i].textContent === dateToSelect) {
+                        dateSelect.selectedIndex = i;
+                        break;
+                    }
                 }
-            });
+
+                if (!isChangingDate) {
+                    panorama.setPano(dateSelect.value);
+                }
+
+                dateSelect.removeEventListener('change', dateSelectChangeHandler);
+                dateSelect.addEventListener('change', dateSelectChangeHandler);
+            } else {
+                const option = document.createElement('option');
+                option.textContent = 'No historical imagery available';
+                dateSelect.appendChild(option);
+            }
+        } else {
+            console.error('Street View data not found for this location.');
         }
+    });
+}
 
         function dateSelectChangeHandler() {
             selectedDate = this.options[this.selectedIndex].textContent;

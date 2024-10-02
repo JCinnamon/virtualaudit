@@ -74,15 +74,15 @@
                     <option value="park">Park</option>
                     <option value="other">Other</option>
                 </select>
-                <label for="condition">Condition:</label>
-                <select id="condition" name="condition">
+                <label for="evaluation">Evaluation:</label>
+                <select id="evaluation" name="evaluation">
                     <option value="excellent">Excellent</option>
                     <option value="good">Good</option>
                     <option value="fair">Fair</option>
                     <option value="poor">Poor</option>
                 </select>
                 <label for="explanation">Explanation:</label>
-                <textarea id="explanation" name="explanation" rows="4"></textarea>
+                <textarea id="explanation" name="explanation" rows="3"></textarea>
             </form>
             <div id="buttons">
                 <button id="recordData">Record Data</button>
@@ -240,9 +240,10 @@ function updateImageDateSelector() {
         function recordObservation() {
             const formData = new FormData(document.getElementById('form'));
             const observation = {
+                timestamp: new Date().toISOString(),
                 group: formData.get('group'),
                 feature: formData.get('feature'),
-                condition: formData.get('condition'),
+                condition: formData.get('evaluation'),
                 explanation: formData.get('explanation'),
                 lat: panorama.getPosition().lat(),
                 lng: panorama.getPosition().lng(),

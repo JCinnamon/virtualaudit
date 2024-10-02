@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Virtual Audit Instrument</title>
+    <title>Virtual Street Audits</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
     <style>
         body, html {
@@ -54,37 +54,40 @@
 <body>
     <div class="container">
         <div id="controlArea">
-            <h1>Virtual Audit Instrument</h1>
+            <h2>Virtual Street Audit</h2>
             <div id="dateSelector">
                 <label for="imageDate">Select Image Date:</label>
                 <select id="imageDate"></select>
             </div>
             <form id="form">
-                <h2>Record instances of urban change</h2>
+                <h3>Record instances of urban change</h3>
                 
-                <label for="group">Group name</label>
+                <label for="group">Group</label>
                 <textarea id="group" name="group" rows="1"></textarea>
                 
                 <label for="feature">Feature Type:</label>
                 <select id="feature" name="feature">
-                    <option value="building">Building</option>
+                    <option value="apartment">Apartment/condo building</option>
+                    <option value="office">Office building</option>
+                    <option value="house">House</option>
+                    <option value="restaurant">Restaurant/bar</option>
+                    <option value="store">Store</option>
                     <option value="street">Street</option>
-                    <option value="infrastructure"> Walk/bike infrastructure</option>
+                    <option value="infrastructure"> Infrastructure</option>
                     <option value="public space">Public space</option>
                     <option value="park">Park</option>
                     <option value="other">Other</option>
                 </select>
-                <label for="evaluation">Evaluation:</label>
+                <label for="evaluation">Evaluation of change:</label>
                 <select id="evaluation" name="evaluation">
                     <option value="excellent">Excellent</option>
                     <option value="good">Good</option>
-                    <option value="fair">Fair</option>
+                    <option value="ok">OK</option>
                     <option value="poor">Poor</option>
                 </select>
-                <label for="explanation">Explanation:</label>
-                <textarea id="explanation" name="explanation" rows="3"></textarea>
+                <label for="explanation">Detail:</label>
+                <textarea id="detail" name="detail" rows="3"></textarea>
             </form>
-
             <div id="buttons">
                 <button id="recordData">Record Data</button>
                 <button id="downloadDataset">Download Dataset</button>
@@ -281,7 +284,7 @@
                     group: formData.get('group'),
                     feature: formData.get('feature'),
                     evaluation: formData.get('evaluation'),
-                    explanation: formData.get('explanation'),
+                    detail: formData.get('detail'),
                     lat: lat,
                     lng: lng,
                     heading: panorama.getPov().heading,

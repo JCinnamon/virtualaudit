@@ -61,9 +61,8 @@
             </div>
             <form id="form">
                 <h2>Record instances of urban change</h2>
-             </select>
                 <label for="group">Group name</label>
-                <textarea id="group" name="group" rows="1"></textarea>
+                <textarea id="notes" name="notes" rows="1"></textarea>
                 <label for="feature">Feature Type:</label>
                 <select id="feature" name="feature">
                     <option value="building">Building</option>
@@ -239,6 +238,7 @@ function updateImageDateSelector() {
         function recordObservation() {
             const formData = new FormData(document.getElementById('form'));
             const observation = {
+                group: formData.get('group'),
                 feature: formData.get('feature'),
                 condition: formData.get('condition'),
                 notes: formData.get('notes'),

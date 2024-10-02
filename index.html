@@ -176,67 +176,67 @@
             clearDataBtn.addEventListener('click', clearAllData);
         }
 
-        function updateImageDateSelector() {
-            const dateSelect = document.getElementById('imageDate');
-            dateSelect.innerHTML = '';
+    function updateImageDateSelector() {
+    const dateSelect = document.getElementById('imageDate');
+    dateSelect.innerHTML = '';
 
-            const request = {
-                location: panorama.getPosition(),
-                radius: 50,
-                source: google.maps.StreetViewSource.OUTDOOR
-            };
+    const request = {
+        location: panorama.getPosition(),
+        radius: 50,
+        source: google.maps.StreetViewSource.OUTDOOR
+    };
 
-            streetViewService.getPanorama(request, function(data, status) {
-                console.log("StreetViewService response:", data);
-                if (status === google.maps.StreetViewStatus.OK) {
-                    currentPanoData = data;
-                    if (data.time && data.time.length > 0) {
-                        console.log("Time data:", data.time);
-                        data.time.forEach((timeObj, index) => {
-                            console.log(`Processing time object ${index}:`, timeObj);
-                            const option = document.createElement('option');
-                            option.value = timeObj.pano;
-                            
-                            let dateString = 'Unknown Date';
-                            if (timeObj.ou) {
-                                console.log(`ou property found:`, timeObj.ou);
-                                // The ou property is already a Date object
-                                dateString = timeObj.ou.toLocaleDateString(undefined, { year: 'numeric', month: 'long' });
-                            } else {
-                                console.log(`No ou property found in time object`);
-                            }
-                            
-                            console.log(`Resulting date string:`, dateString);
-                            option.textContent = dateString;
-                            dateSelect.appendChild(option);
-                        });
-
-                        // Select the previously selected date if available, otherwise select the most recent
-                        const dateToSelect = selectedDate || dateSelect.options[0].textContent;
-                        for (let i = 0; i < dateSelect.options.length; i++) {
-                            if (dateSelect.options[i].textContent === dateToSelect) {
-                                dateSelect.selectedIndex = i;
-                                break;
-                            }
-                        }
-
-                        if (!isChangingDate) {
-                            panorama.setPano(dateSelect.value);
-                        }
-
-                        dateSelect.removeEventListener('change', dateSelectChangeHandler);
-                        dateSelect.addEventListener('change', dateSelectChangeHandler);
+    streetViewService.getPanorama(request, function(data, status) {
+        console.log("StreetViewService response:", data);
+        if (status === google.maps.StreetViewStatus.OK) {
+            currentPanoData = data;
+            if (data.time && data.time.length > 0) {
+                console.log("Time data:", data.time);
+                data.time.forEach((timeObj, index) => {
+                    console.log(`Processing time object ${index}:`, timeObj);
+                    const option = document.createElement('option');
+                    option.value = timeObj.pano;
+                    
+                    let dateString = 'Unknown Date';
+                    if (timeObj.su) {
+                        console.log(`su property found:`, timeObj.su);
+                        // The su property is already a Date object
+                        dateString = timeObj.su.toLocaleDateString(undefined, { year: 'numeric', month: 'long' });
                     } else {
-                        console.log("No time data available");
-                        const option = document.createElement('option');
-                        option.textContent = 'No historical imagery available';
-                        dateSelect.appendChild(option);
+                        console.log(`No su property found in time object`);
                     }
-                } else {
-                    console.error('Street View data not found for this location.');
+                    
+                    console.log(`Resulting date string:`, dateString);
+                    option.textContent = dateString;
+                    dateSelect.appendChild(option);
+                });
+
+                // Select the previously selected date if available, otherwise select the most recent
+                const dateToSelect = selectedDate || dateSelect.options[0].textContent;
+                for (let i = 0; i < dateSelect.options.length; i++) {
+                    if (dateSelect.options[i].textContent === dateToSelect) {
+                        dateSelect.selectedIndex = i;
+                        break;
+                    }
                 }
-            });
+
+                if (!isChangingDate) {
+                    panorama.setPano(dateSelect.value);
+                }
+
+                dateSelect.removeEventListener('change', dateSelectChangeHandler);
+                dateSelect.addEventListener('change', dateSelectChangeHandler);
+            } else {
+                console.log("No time data available");
+                const option = document.createElement('option');
+                option.textContent = 'No historical imagery available';
+                dateSelect.appendChild(option);
+            }
+        } else {
+            console.error('Street View data not found for this location.');
         }
+    });
+}
 
         function dateSelectChangeHandler() {
             selectedDate = this.options[this.selectedIndex].textContent;

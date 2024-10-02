@@ -290,11 +290,11 @@
                     explanation: formData.get('explanation'),
                     lat: lat,
                     lng: lng,
-                    imageDate: document.getElementById('imageDate').options[document.getElementById('imageDate').selectedIndex].textContent,
-                    streetAddress: address
                     heading: panorama.getPov().heading,
                     pitch: panorama.getPov().pitch,
-                                       
+                    imageDate: document.getElementById('imageDate').options[document.getElementById('imageDate').selectedIndex].textContent,
+                    streetAddress: address
+                                                           
                 };
 
                 observations.push(observation);

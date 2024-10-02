@@ -87,6 +87,7 @@
             <div id="buttons">
                 <button id="recordData">Record Data</button>
                 <button id="downloadDataset">Download Dataset</button>
+                <button id="clearData">Clear All Data</button>
             </div>
             <div id="observationCount"></div>
         </div>
@@ -104,6 +105,7 @@
         let currentPanoData = null;
         let selectedDate = null;
         let isUpdatingPanorama = false;
+        let clearDataBtn;
 
         function initMap() {
             const defaultLocation = { lat: 49.886324, lng: -119.493484 }; // Kelowna
@@ -163,6 +165,9 @@
 
             document.getElementById('recordData').addEventListener('click', recordObservation);
             document.getElementById('downloadDataset').addEventListener('click', downloadDataset);
+            clearDataBtn = document.getElementById('clearData');
+            clearDataBtn.addEventListener('click', clearAllData);
+}
         }
 
         function updateImageDateSelector() {
@@ -314,15 +319,26 @@
         }
 
         function loadObservations() {
-            const savedObservations = localStorage.getItem('virtualAuditObservations');
-            if (savedObservations) {
-                observations = JSON.parse(savedObservations);
-            }
-        }
+    const savedObservations = localStorage.getItem('virtualAuditObservations');
+    if (savedObservations) {
+        observations = JSON.parse(savedObservations);
+    } else {
+        observations = [];
+    }
+    updateObservationCount();
+}
 
         function updateObservationCount() {
             document.getElementById('observationCount').textContent = `Total Observations: ${observations.length}`;
         }
+        function clearAllData() {
+    if (confirm("Are you sure you want to delete all recorded observations? This action cannot be undone.")) {
+        localStorage.removeItem('virtualAuditObservations');
+        observations = [];
+        updateObservationCount();
+        alert("All data has been cleared.");
+    }
+}
 
         (function() {
             const script = document.createElement('script');

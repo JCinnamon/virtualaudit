@@ -61,8 +61,10 @@
             </div>
             <form id="form">
                 <h2>Record instances of urban change</h2>
+                
                 <label for="group">Group name</label>
-                <textarea id="notes" name="notes" rows="1"></textarea>
+                <textarea id="group" name="group" rows="1"></textarea>
+                
                 <label for="feature">Feature Type:</label>
                 <select id="feature" name="feature">
                     <option value="building">Building</option>
@@ -80,7 +82,7 @@
                     <option value="poor">Poor</option>
                 </select>
                 <label for="explanation">Explanation:</label>
-                <textarea id="notes" name="notes" rows="4"></textarea>
+                <textarea id="explanation" name="explanation" rows="4"></textarea>
             </form>
             <div id="buttons">
                 <button id="recordData">Record Data</button>
@@ -241,7 +243,7 @@ function updateImageDateSelector() {
                 group: formData.get('group'),
                 feature: formData.get('feature'),
                 condition: formData.get('condition'),
-                notes: formData.get('notes'),
+                explanation: formData.get('explanation'),
                 lat: panorama.getPosition().lat(),
                 lng: panorama.getPosition().lng(),
                 heading: panorama.getPov().heading,

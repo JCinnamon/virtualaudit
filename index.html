@@ -65,7 +65,7 @@
                 <label for="group">Group/map area ID number</label>
                 <textarea id="group" name="group" rows="1"></textarea>
                 
-                <label for="feature">Feature Type:</label>
+                <label for="feature">Feature/object type:</label>
                 <select id="feature" name="feature">
                     <option value="apartment">Apartment/condo building</option>
                     <option value="office">Office building</option>
@@ -81,14 +81,14 @@
                     <option value="art">Art/mural</option>
                     <option value="other">Other</option>
                 </select>
-                <label for="evaluation">Evaluation of change:</label>
-                <select id="evaluation" name="evaluation">
-                    <option value="positive">Positive</option>
-                    <option value="neutral">Neutral</option>
-                    <option value="negative">Negative</option>
+                <label for="featurechange">Feature/object change:</label>
+                <select id="featurechange" name="featurechange">
+                    <option value="newtype">Changed to new feature</option>
+                    <option value="sametype">Changed but same feature type</option>
+                    <option value="notapplicable">Not applicable</option>
                 </select>
                 <label for="explanation">Explanation of change:</label>
-                <textarea id="explanation" name="explanation" rows="3"></textarea>
+                <textarea id="explanation" name="explanation" rows="3">e.g. specific details, date of change</textarea>
             </form>
             <div id="buttons">
                 <button id="recordData">Record Data</button>

@@ -84,6 +84,7 @@
                 <label for="explanation">Explanation:</label>
                 <textarea id="explanation" name="explanation" rows="3"></textarea>
             </form>
+
             <div id="buttons">
                 <button id="recordData">Record Data</button>
                 <button id="downloadDataset">Download Dataset</button>
@@ -167,7 +168,6 @@
             document.getElementById('downloadDataset').addEventListener('click', downloadDataset);
             clearDataBtn = document.getElementById('clearData');
             clearDataBtn.addEventListener('click', clearAllData);
-}
         }
 
         function updateImageDateSelector() {
@@ -314,31 +314,32 @@
             }
         }
 
+        function clearAllData() {
+            if (confirm("Are you sure you want to delete all recorded observations? This action cannot be undone.")) {
+                localStorage.removeItem('virtualAuditObservations');
+                observations = [];
+                updateObservationCount();
+                alert("All data has been cleared.");
+            }
+        }
+
         function saveObservations() {
             localStorage.setItem('virtualAuditObservations', JSON.stringify(observations));
         }
 
         function loadObservations() {
-    const savedObservations = localStorage.getItem('virtualAuditObservations');
-    if (savedObservations) {
-        observations = JSON.parse(savedObservations);
-    } else {
-        observations = [];
-    }
-    updateObservationCount();
-}
+            const savedObservations = localStorage.getItem('virtualAuditObservations');
+            if (savedObservations) {
+                observations = JSON.parse(savedObservations);
+            } else {
+                observations = [];
+            }
+            updateObservationCount();
+        }
 
         function updateObservationCount() {
             document.getElementById('observationCount').textContent = `Total Observations: ${observations.length}`;
         }
-        function clearAllData() {
-    if (confirm("Are you sure you want to delete all recorded observations? This action cannot be undone.")) {
-        localStorage.removeItem('virtualAuditObservations');
-        observations = [];
-        updateObservationCount();
-        alert("All data has been cleared.");
-    }
-}
 
         (function() {
             const script = document.createElement('script');

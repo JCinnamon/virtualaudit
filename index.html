@@ -295,9 +295,10 @@
 
             const observation = {
                 timestamp: localTimestamp,
+                group: formData.get('group'),
                 feature: formData.get('feature'),
-                condition: formData.get('condition'),
-                notes: formData.get('notes'),
+                featurechange: formData.get('featurechange'),
+                explanation: formData.get('explanation'),
                 lat: lat,
                 lng: lng,
                 heading: panorama.getPov().heading,

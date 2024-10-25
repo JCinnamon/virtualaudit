@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Virtual Street Audits</title>
+    <title>Virtual Street Audit</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
     <style>
         body, html {
@@ -21,7 +21,7 @@
         #controlArea {
             grid-column: 1;
             grid-row: 1;
-            padding: 10px;
+            padding: 20px;
             overflow-y: auto;
         }
         #map {
@@ -33,13 +33,13 @@
             grid-row: 1 / span 2;
         }
         #form, #dateSelector, #buttons {
-            margin-bottom: 10px;
+            margin-bottom: 20px;
         }
         #observationCount {
             margin-top: 10px;
             font-weight: bold;
         }
-        h1 {
+        h1, h2 {
             margin-top: 0;
         }
         select, textarea {
@@ -49,23 +49,37 @@
         button {
             margin-right: 10px;
         }
+        .date-fields {
+            margin-bottom: 15px;
+        }
+        .date-field {
+            margin-bottom: 10px;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div id="controlArea">
-            <h3>Virtual Street Audit</h3>
+            <h1>Virtual Street Audit</h1>
             <div id="dateSelector">
                 <label for="imageDate">Select Image Date:</label>
                 <select id="imageDate"></select>
             </div>
+            <div class="date-fields">
+                <div class="date-field">
+                    <label for="currentImageryDate">Current Imagery Date:</label>
+                    <input type="text" id="currentImageryDate" name="currentImageryDate" readonly>
+                </div>
+                <div class="date-field">
+                    <label for="backupImageryDate">Backup Date:</label>
+                    <input type="text" id="backupImageryDate" name="backupImageryDate" readonly>
+                </div>
+            </div>
             <form id="form">
-                <h4>Record instances of urban change</h4>
-                <label for="currentImageryDate">Current Imagery Date:</label>
-                <input type="text" id="currentImageryDate" name="currentImageryDate" readonly>
-                <br>
-                <label for="group">Group/map area number</label>
-                <textarea id="group" name="group" rows="1"></textarea>
+                <h2>Record instances of urban change</h2>
+                
+                <label for="groupNumber">Group/map area number:</label>
+                <input type="text" id="groupNumber" name="groupNumber">
                 
                 <label for="feature">Feature/object type:</label>
                 <select id="feature" name="feature">
@@ -74,24 +88,25 @@
                     <option value="house">House</option>
                     <option value="restaurant">Restaurant/bar</option>
                     <option value="store">Store</option>
-                     <option value="construction">Construction site</option>
-                    <option value="street">Street</option>
-                    <option value="infrastructure">Infrastructure</option>
-                    <option value="public space">Public space</option>
-                    <option value="greenspace">Green space</option>
+                    <option value="construction">Construction site</option>
+                    <option value="street">Street Infrastructure</option>
+                    <option value="public">Public space</option>
+                    <option value="green">Green space</option>
                     <option value="trees">Trees</option>
                     <option value="art">Art/mural</option>
                     <option value="other">Other</option>
                 </select>
-                <label for="featurechange">Feature/object change:</label>
-                <select id="featurechange" name="featurechange">
-                    <option value="new feature type">Changed to new feature</option>
-                    <option value="same feature type">Changed but same feature type</option>
-                    <option value="feature upgrade/reno">Same feature but upgraded/renovated</option>
-                    <option value="not applicable">Not applicable</option>
+
+                <label for="change">Feature/object change:</label>
+                <select id="change" name="change">
+                    <option value="new">Changed to new feature</option>
+                    <option value="same-type">Changed but same feature type</option>
+                    <option value="upgraded">Same feature but upgraded/renovated</option>
+                    <option value="na">Not applicable</option>
                 </select>
-                <label for="explanation">Explanation of change:</label>
-                <textarea id="explanation" name="explanation" rows="2" placeholder="e.g. specific details, date of change"></textarea>
+
+                <label for="notes">Explanation of change:</label>
+                <textarea id="notes" name="notes" rows="4"></textarea>
             </form>
             <div id="buttons">
                 <button id="recordData">Record Data</button>
@@ -114,7 +129,6 @@
         let currentPanoData = null;
         let selectedDate = null;
         let isUpdatingPanorama = false;
-        let clearDataBtn;
 
         function initMap() {
             const defaultLocation = { lat: 49.886324, lng: -119.493484 }; // Kelowna
@@ -164,7 +178,7 @@
                     setTimeout(() => {
                         updateImageDateSelector();
                         isUpdatingPanorama = false;
-                    }, 500); // Wait for 500ms to let the panorama settle
+                    }, 500);
                 }
             });
 
@@ -174,92 +188,118 @@
 
             document.getElementById('recordData').addEventListener('click', recordObservation);
             document.getElementById('downloadDataset').addEventListener('click', downloadDataset);
-            clearDataBtn = document.getElementById('clearData');
-            clearDataBtn.addEventListener('click', clearAllData);
+            document.getElementById('clearData').addEventListener('click', clearAllData);
         }
 
- function updateImageDateSelector() {
-        const dateSelect = document.getElementById('imageDate');
-        const currentImageryDateInput = document.getElementById('currentImageryDate');
-        dateSelect.innerHTML = '';
+        function updateImageDateSelector() {
+            const dateSelect = document.getElementById('imageDate');
+            const currentImageryDateInput = document.getElementById('currentImageryDate');
+            const backupImageryDateInput = document.getElementById('backupImageryDate');
+            dateSelect.innerHTML = '';
 
-        const request = {
-            location: panorama.getPosition(),
-            radius: 50,
-            source: google.maps.StreetViewSource.OUTDOOR
-        };
+            const request = {
+                location: panorama.getPosition(),
+                radius: 50,
+                source: google.maps.StreetViewSource.OUTDOOR
+            };
 
-        streetViewService.getPanorama(request, function(data, status) {
-            console.log("StreetViewService response:", data);
-            if (status === google.maps.StreetViewStatus.OK) {
-                currentPanoData = data;
-                if (data.time && data.time.length > 0) {
-                    console.log("Time data:", data.time);
-                    data.time.forEach((timeObj, index) => {
-                        console.log(`Processing time object ${index}:`, timeObj);
-                        const option = document.createElement('option');
-                        option.value = timeObj.pano;
-                        
-                        let dateString = 'Unknown Date';
-                        const dateProp = timeObj.su || timeObj.ou || timeObj.tu;
-                        if (dateProp) {
-                            console.log(`Date property found:`, dateProp);
-                            dateString = dateProp.toLocaleDateString(undefined, { year: 'numeric', month: 'long' });
-                        } else {
-                            console.log(`No recognized date property found in time object`);
-                        }
-                        
-                        console.log(`Resulting date string:`, dateString);
-                        option.textContent = dateString;
-                        dateSelect.appendChild(option);
-
-                        // If this is the current panorama, update the currentImageryDate input
-                        if (timeObj.pano === panorama.getPano()) {
-                            currentImageryDateInput.value = dateString;
-                        }
-                    });
-
-                    // Select the previously selected date if available, otherwise select the most recent
-                    const dateToSelect = selectedDate || dateSelect.options[0].textContent;
-                    for (let i = 0; i < dateSelect.options.length; i++) {
-                        if (dateSelect.options[i].textContent === dateToSelect) {
-                            dateSelect.selectedIndex = i;
-                            break;
-                        }
-                    }
-
-                    if (!isChangingDate) {
-                        panorama.setPano(dateSelect.value);
-                    }
-
-                    dateSelect.removeEventListener('change', dateSelectChangeHandler);
-                    dateSelect.addEventListener('change', dateSelectChangeHandler);
+            streetViewService.getPanorama(request, function(data, status) {
+                console.log("StreetViewService response:", data);
+                
+                // Update backup date field
+                if (data.imageDate) {
+                    backupImageryDateInput.value = data.imageDate;
                 } else {
-                    console.log("No time data available");
-                    const option = document.createElement('option');
-                    option.textContent = 'No historical imagery available';
-                    dateSelect.appendChild(option);
+                    backupImageryDateInput.value = 'No backup date available';
+                }
+
+                if (status === google.maps.StreetViewStatus.OK) {
+                    currentPanoData = data;
+                    if (data.time && data.time.length > 0) {
+                        console.log("Time data:", data.time);
+                        
+                        // Create a map of panos to dates for backup date lookup
+                        const panoDateMap = new Map();
+                        
+                        data.time.forEach((timeObj, index) => {
+                            console.log(`Processing time object ${index}:`, timeObj);
+                            const option = document.createElement('option');
+                            option.value = timeObj.pano;
+                            
+                            // Try all possible property names for the date
+                            const dateProp = timeObj.Iu || timeObj.su || timeObj.ou || timeObj.tu || 
+                                           Object.values(timeObj).find(prop => prop instanceof Date);
+                            
+                            let dateString = 'Unknown Date';
+                            if (dateProp) {
+                                console.log(`Date property found:`, dateProp);
+                                dateString = dateProp.toLocaleDateString(undefined, { year: 'numeric', month: 'long' });
+                            } else if (data.imageDate) {
+                                // Use imageDate as backup for the current panorama
+                                if (timeObj.pano === data.location.pano) {
+                                    console.log(`Using imageDate from response:`, data.imageDate);
+                                    // Convert YYYY-MM format to readable date
+                                    const [year, month] = data.imageDate.split('-');
+                                    const date = new Date(year, month - 1);
+                                    dateString = date.toLocaleDateString(undefined, { year: 'numeric', month: 'long' });
+                                }
+                            }
+                            
+                            panoDateMap.set(timeObj.pano, dateString);
+                            console.log(`Resulting date string:`, dateString);
+                            option.textContent = dateString;
+                            dateSelect.appendChild(option);
+
+                            // If this is the current panorama, update the currentImageryDate input
+                            if (timeObj.pano === panorama.getPano()) {
+                                currentImageryDateInput.value = dateString;
+                            }
+                        });
+
+                        // Store the panoDateMap for later use
+                        window.panoDateMap = panoDateMap;
+
+                        // Select the previously selected date if available, otherwise select the most recent
+                        const dateToSelect = selectedDate || dateSelect.options[0].textContent;
+                        for (let i = 0; i < dateSelect.options.length; i++) {
+                            if (dateSelect.options[i].textContent === dateToSelect) {
+                                dateSelect.selectedIndex = i;
+                                break;
+                            }
+                        }
+
+                        if (!isChangingDate) {
+                            panorama.setPano(dateSelect.value);
+                        }
+
+                        dateSelect.removeEventListener('change', dateSelectChangeHandler);
+                        dateSelect.addEventListener('change', dateSelectChangeHandler);
+                    } else {
+                        console.log("No time data available");
+                        const option = document.createElement('option');
+                        option.textContent = 'No historical imagery available';
+                        dateSelect.appendChild(option);
+                        currentImageryDateInput.value = 'No date available';
+                    }
+                } else {
+                    console.error('Street View data not found for this location.');
                     currentImageryDateInput.value = 'No date available';
                 }
-            } else {
-                console.error('Street View data not found for this location.');
-                currentImageryDateInput.value = 'No date available';
-            }
-        });
-    }
+            });
+        }
 
         function dateSelectChangeHandler() {
-        selectedDate = this.options[this.selectedIndex].textContent;
-        const selectedPano = this.value;
-        if (selectedPano !== panorama.getPano()) {
-            isChangingDate = true;
-            panorama.setPano(selectedPano);
-            document.getElementById('currentImageryDate').value = selectedDate;
-            setTimeout(() => {
-                isChangingDate = false;
-            }, 100);
+            selectedDate = this.options[this.selectedIndex].textContent;
+            const selectedPano = this.value;
+            if (selectedPano !== panorama.getPano()) {
+                isChangingDate = true;
+                panorama.setPano(selectedPano);
+                document.getElementById('currentImageryDate').value = window.panoDateMap.get(selectedPano) || selectedDate;
+                setTimeout(() => {
+                    isChangingDate = false;
+                }, 100);
+            }
         }
-    }
 
         function getStreetAddress(lat, lng, callback) {
             const latlng = { lat: lat, lng: lng };
@@ -277,46 +317,50 @@
         }
 
         function recordObservation() {
-        const formData = new FormData(document.getElementById('form'));
-        const lat = panorama.getPosition().lat();
-        const lng = panorama.getPosition().lng();
+            const formData = new FormData(document.getElementById('form'));
+            const lat = panorama.getPosition().lat();
+            const lng = panorama.getPosition().lng();
 
-        getStreetAddress(lat, lng, function(address) {
-            const now = new Date();
-            const localTimestamp = now.toLocaleString('en-US', { 
-                year: 'numeric', 
-                month: '2-digit', 
-                day: '2-digit',
-                hour: '2-digit', 
-                minute: '2-digit', 
-                second: '2-digit',
-                hour12: false
+            getStreetAddress(lat, lng, function(address) {
+                const now = new Date();
+                const localTimestamp = now.toLocaleString('en-US', { 
+                    year: 'numeric', 
+                    month: '2-digit', 
+                    day: '2-digit',
+                    hour: '2-digit', 
+                    minute: '2-digit', 
+                    second: '2-digit',
+                    hour12: false
+                });
+
+                const observation = {
+                    timestamp: localTimestamp,
+                    groupNumber: formData.get('groupNumber'),
+                    feature: formData.get('feature'),
+                    change: formData.get('change'),
+                    notes: formData.get('notes'),
+                    lat: lat,
+                    lng: lng,
+                    heading: panorama.getPov().heading,
+                    pitch: panorama.getPov().pitch,
+                    imageDate: document.getElementById('currentImageryDate').value,
+                    backupDate: document.getElementById('backupImageryDate').value,
+                    streetAddress: address
+                };
+
+                observations.push(observation);
+                saveObservations();
+                updateObservationCount();
+
+                // Clear form except for the groupNumber
+                const groupNumber = document.getElementById('groupNumber').value;
+                document.getElementById('form').reset();
+                document.getElementById('groupNumber').value = groupNumber;
+                
+                // Re-populate the date fields
+                document.getElementById('currentImageryDate').value = window.panoDateMap.get(panorama.getPano()) || selectedDate;
             });
-
-            const observation = {
-                timestamp: localTimestamp,
-                group: formData.get('group'),
-                feature: formData.get('feature'),
-                featurechange: formData.get('featurechange'),
-                explanation: formData.get('explanation'),
-                lat: lat,
-                lng: lng,
-                heading: panorama.getPov().heading,
-                pitch: panorama.getPov().pitch,
-                imageDate: formData.get('currentImageryDate'), // Use the auto-populated field
-                streetAddress: address
-            };
-
-            observations.push(observation);
-            saveObservations();
-            updateObservationCount();
-
-            // Clear form
-            document.getElementById('form').reset();
-            // Re-populate the currentImageryDate after form reset
-            document.getElementById('currentImageryDate').value = selectedDate;
-        });
-    }
+        }
 
         function downloadDataset() {
             const csv = Papa.unparse(observations);
@@ -350,8 +394,6 @@
             const savedObservations = localStorage.getItem('virtualAuditObservations');
             if (savedObservations) {
                 observations = JSON.parse(savedObservations);
-            } else {
-                observations = [];
             }
             updateObservationCount();
         }
@@ -359,14 +401,3 @@
         function updateObservationCount() {
             document.getElementById('observationCount').textContent = `Total Observations: ${observations.length}`;
         }
-
-        (function() {
-            const script = document.createElement('script');
-            script.src = 'https://maps.googleapis.com/maps/api/js?key=AIzaSyBNVN2mixyttHxNeZjX63A96vEMtx0Nmio&libraries=drawing,geocoding&callback=initMap';
-            script.async = true;
-            script.defer = true;
-            document.head.appendChild(script);
-        })();
-    </script>
-</body>
-</html>

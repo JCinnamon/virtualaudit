@@ -342,7 +342,7 @@ function getStreetAddress(lat, lng, callback) {
                     group: formData.get('group'),
                     feature: formData.get('feature'),
                     featurechange: formData.get('featurechange'),
-                    estyear; formData.get('estyear'),
+                    estyear: formData.get('estyear'),
                     explanation: formData.get('explanation'),
                     lat: lat,
                     lng: lng,
@@ -351,6 +351,7 @@ function getStreetAddress(lat, lng, callback) {
                     imageDate: document.getElementById('currentImageryDate').value,
                     backupDate: document.getElementById('backupImageryDate').value,
                     streetAddress: address
+                    
                 };
 
                 observations.push(observation);

@@ -50,6 +50,10 @@
             width: 100%;
             margin-bottom: 10px;
         }
+        text {
+            width: 50%;
+            margin-bottom: 10px;
+        }
         button {
             margin-right: 10px;
         }
@@ -72,7 +76,7 @@
                 <input type="text" id="backupImageryDate" name="backupImageryDate" readonly>
                 <br>
                 <label for="group">Group/map area number</label>
-                <textarea id="group" name="group" rows="1" cols="6"></textarea>
+                <text id="group" name="group" rows="1" cols="6"></text>
                 
                 <label for="feature">Feature/object type:</label>
                 <select id="feature" name="feature">
@@ -99,7 +103,7 @@
                     <option value="not applicable">Not applicable</option>
                 </select>
                 <label for="estyear">Estimated year of change:</label>
-                <textarea id="estyear" name="estyear" rows="1" cols="6"></textarea>
+                <text id="estyear" name="estyear" rows="1" cols="6"></text>
                 <label for="explanation">Explanation of change:</label>
                 <textarea id="explanation" name="explanation" rows="2" placeholder="Explain the observed change"></textarea>
             </form>

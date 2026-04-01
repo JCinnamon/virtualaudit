@@ -6,7 +6,7 @@
   <title>Virtual Street Audit Tool</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    /* ── Design System ───────────────────────────────────────── */
+    /* ?? Design System ????????????????????????????????????????? */
     :root {
       --primary:       #2c5f7a;
       --primary-dark:  #1e4358;
@@ -36,13 +36,13 @@
       line-height: 1.4;
     }
 
-    /* ── App Layout ──────────────────────────────────────────── */
+    /* ?? App Layout ???????????????????????????????????????????? */
     #app {
       display: flex;
       height: 100vh;
     }
 
-    /* ── Sidebar ─────────────────────────────────────────────── */
+    /* ?? Sidebar ??????????????????????????????????????????????? */
     #sidebar {
       width: 316px;
       flex-shrink: 0;
@@ -114,7 +114,7 @@
 
     .section-title-row .section-title { margin-bottom: 0; }
 
-    /* ── Location Search ─────────────────────────────────────── */
+    /* ?? Location Search ??????????????????????????????????????? */
     .search-row {
       display: flex;
       gap: 0.35rem;
@@ -133,7 +133,7 @@
       padding-top: 1px;
     }
 
-    /* ── Date Selector ───────────────────────────────────────── */
+    /* ?? Date Selector ????????????????????????????????????????? */
     #imageDate { margin-bottom: 0.3rem; }
 
     .current-date-pill {
@@ -146,7 +146,7 @@
       min-height: 0.95rem;
     }
 
-    /* ── Form ────────────────────────────────────────────────── */
+    /* ?? Form ?????????????????????????????????????????????????? */
     .field {
       margin-bottom: 0.45rem;
     }
@@ -218,7 +218,7 @@
       cursor: default;
     }
 
-    /* ── Confidence Rating ───────────────────────────────────── */
+    /* ?? Confidence Rating ????????????????????????????????????? */
     .conf-row {
       display: flex;
       gap: 3px;
@@ -252,7 +252,7 @@
       background: var(--accent-light);
     }
 
-    /* ── Buttons ─────────────────────────────────────────────── */
+    /* ?? Buttons ??????????????????????????????????????????????? */
     .btn {
       display: inline-flex;
       align-items: center;
@@ -316,7 +316,7 @@
       gap: 0.35rem;
     }
 
-    /* ── Edit Bar ────────────────────────────────────────────── */
+    /* ?? Edit Bar ?????????????????????????????????????????????? */
     #edit-bar {
       display: none;
       align-items: center;
@@ -332,7 +332,7 @@
     }
     #edit-bar.visible { display: flex; }
 
-    /* ── Observation Log ─────────────────────────────────────── */
+    /* ?? Observation Log ??????????????????????????????????????? */
     .obs-item {
       padding: 0.475rem 0;
       border-bottom: 1px solid var(--border);
@@ -403,7 +403,7 @@
       font-size: 0.75rem;
     }
 
-    /* ── Map Area ────────────────────────────────────────────── */
+    /* ?? Map Area ?????????????????????????????????????????????? */
     #map-area {
       flex: 1;
       position: relative;
@@ -431,7 +431,7 @@
       overflow: hidden;
     }
 
-    /* ── Toast Notifications ─────────────────────────────────── */
+    /* ?? Toast Notifications ??????????????????????????????????? */
     #toasts {
       position: fixed;
       bottom: 20px;
@@ -464,7 +464,7 @@
       to   { opacity: 1; transform: translateY(0); }
     }
 
-    /* ── Sidebar Footer ─────────────────────────────────────── */
+    /* ?? Sidebar Footer ??????????????????????????????????????? */
     .sidebar-footer {
       background: var(--primary-dark);
       color: rgba(255,255,255,0.5);
@@ -481,7 +481,7 @@
     }
     .sidebar-footer a:hover { color: #fff; }
 
-    /* ── Loading overlay ─────────────────────────────────────── */
+    /* ?? Loading overlay ??????????????????????????????????????? */
     #pano-loading {
       position: absolute;
       inset: 0;
@@ -503,7 +503,7 @@
 
 <div id="app">
 
-  <!-- ── Sidebar ──────────────────────────────────────────────── -->
+  <!-- ?? Sidebar ???????????????????????????????????????????????? -->
   <aside id="sidebar">
 
     <div class="sidebar-header">
@@ -517,17 +517,17 @@
       <section class="sidebar-section">
         <div class="section-title">Location</div>
         <div class="search-row">
-          <input type="text" id="address-input" placeholder="Search address or place…">
+          <input type="text" id="address-input" placeholder="Search address or place�">
           <button class="btn btn-outline btn-sm" id="search-btn" onclick="searchLocation()">Go</button>
         </div>
-        <div id="current-address-display">—</div>
+        <div id="current-address-display">�</div>
       </section>
 
       <!-- Imagery Date -->
       <section class="sidebar-section">
         <div class="section-title">Imagery Date</div>
         <select id="imageDate" onchange="dateSelectChangeHandler()">
-          <option value="">Loading…</option>
+          <option value="">Loading�</option>
         </select>
         <div class="current-date-pill" id="current-date-pill"></div>
       </section>
@@ -537,7 +537,7 @@
         <div class="section-title">Record Observation</div>
 
         <div id="edit-bar">
-          ✎ Editing observation
+          ? Editing observation
           <button class="btn btn-outline btn-sm" onclick="cancelEdit()" style="padding:2px 8px;font-size:0.625rem">Cancel (Esc)</button>
         </div>
 
@@ -549,7 +549,7 @@
         <div class="field-row">
           <div class="field">
             <label>Current Date</label>
-            <input type="text" id="currentImageryDate" readonly placeholder="—">
+            <input type="text" id="currentImageryDate" readonly placeholder="�">
           </div>
           <div class="field">
             <label>Backup Date</label>
@@ -560,7 +560,7 @@
         <div class="field">
           <label>Feature Type <span class="req">*</span></label>
           <select id="feature">
-            <option value="">— Select —</option>
+            <option value="">� Select �</option>
             <option value="Apartment/Condo">Apartment / Condo Building</option>
             <option value="Office Building">Office Building</option>
             <option value="House">House</option>
@@ -581,7 +581,7 @@
         <div class="field">
           <label>Change Type <span class="req">*</span></label>
           <select id="featurechange">
-            <option value="">— Select —</option>
+            <option value="">� Select �</option>
             <option value="Changed to new feature type">Changed to new feature type</option>
             <option value="Changed but same feature type">Changed but same feature type</option>
             <option value="Same feature, upgraded/renovated">Same feature, upgraded / renovated</option>
@@ -595,7 +595,7 @@
             <input type="number" id="estyear" placeholder="e.g. 2018" min="1900" max="2035">
           </div>
           <div class="field">
-            <label>Confidence (1–5)</label>
+            <label>Confidence (1�5)</label>
             <div class="conf-row">
               <button class="conf-btn" data-val="1" onclick="setConfidence(1)">1</button>
               <button class="conf-btn" data-val="2" onclick="setConfidence(2)">2</button>
@@ -608,16 +608,16 @@
 
         <div class="field">
           <label>Explanation of Change</label>
-          <textarea id="explanation" placeholder="Describe what changed…" rows="2"></textarea>
+          <textarea id="explanation" placeholder="Describe what changed�" rows="2"></textarea>
         </div>
 
         <div class="field">
           <label>Notes</label>
-          <textarea id="notes" placeholder="Additional observations…" rows="2"></textarea>
+          <textarea id="notes" placeholder="Additional observations�" rows="2"></textarea>
         </div>
 
         <button class="btn btn-primary btn-block" id="record-btn" onclick="recordObservation()">
-          Record <kbd>Ctrl+↵</kbd>
+          Record <kbd>Ctrl+?</kbd>
         </button>
       </section>
 
@@ -626,7 +626,7 @@
         <div class="section-title-row">
           <span class="section-title">Observations (<span id="obs-count">0</span>)</span>
           <div class="btn-group">
-            <button class="btn btn-outline btn-sm" onclick="downloadDataset()">↓ CSV</button>
+            <button class="btn btn-outline btn-sm" onclick="downloadDataset()">? CSV</button>
             <button class="btn btn-danger btn-sm" onclick="clearAllData()">Clear</button>
           </div>
         </div>
@@ -639,13 +639,13 @@
 
     <div class="sidebar-footer">
       <a href="https://jcinnamon.github.io/">J Cinnamon</a>
-      &nbsp;·&nbsp; Virtual Street Audit &nbsp;·&nbsp; UBC Okanagan
+      &nbsp;�&nbsp; Virtual Street Audit &nbsp;�&nbsp; UBC Okanagan
     </div>
   </aside>
 
-  <!-- ── Map + Panorama ──────────────────────────────────────── -->
+  <!-- ?? Map + Panorama ???????????????????????????????????????? -->
   <div id="map-area">
-    <div id="pano-loading">Loading Street View…</div>
+    <div id="pano-loading">Loading Street View�</div>
     <div id="pano"></div>
     <div id="map"></div>
   </div>
@@ -661,7 +661,7 @@
 // ================================================================
 // Maps API key: loaded from config.js (see config.js.example).
 //   For deployment: replace REPLACE_WITH_YOUR_KEY below.
-//   For local dev:  create config.js → window.MAPS_API_KEY = 'your-key';
+//   For local dev:  create config.js ? window.MAPS_API_KEY = 'your-key';
 //   In Google Cloud Console, restrict this key to: https://jcinnamon.github.io
 //
 // Sheets webhook: set window.SHEETS_WEBHOOK_URL in config.js to your
@@ -690,7 +690,8 @@ function initMap() {
     zoom: 17,
     disableDefaultUI: true,
     zoomControl: true,
-    streetViewControl: false,
+    streetViewControl: true,
+    streetViewControlOptions: { position: google.maps.ControlPosition.RIGHT_BOTTOM },
     mapTypeControl: false,
   });
 
@@ -748,53 +749,75 @@ function updateAvailableDates(location) {
 
   const MONTHS = ['January','February','March','April','May','June',
                   'July','August','September','October','November','December'];
-  const toOrdinal = s => {
-    const p = (s || '').trim().split(' ');
-    return parseInt(p[1] || 0) * 12 + MONTHS.indexOf(p[0]);
-  };
 
-  function applyDates(panoId, times) {
-    if (!times || !times.length) {
-      sel.innerHTML = `<option value="${panoId}">Current</option>`;
-      setCurrentDateDisplay('Current');
-      isUpdatingFromDate = true;
-      panorama.setPano(panoId);
-      setTimeout(() => { isUpdatingFromDate = false; }, 900);
+  function fmtDate(imageDate) {
+    if (!imageDate) return null;
+    const m = String(imageDate).match(/(\d{4})-(\d{2})/);
+    return m ? MONTHS[parseInt(m[2]) - 1] + ' ' + m[1] : imageDate;
+  }
+  function dateOrdinal(imageDate) {
+    const m = String(imageDate || '').match(/(\d{4})-(\d{2})/);
+    return m ? parseInt(m[1]) * 12 + parseInt(m[2]) : 0;
+  }
+
+  function populate(items) {
+    const valid = items
+      .filter(i => i.pano && i.imageDate)
+      .sort((a, b) => dateOrdinal(a.imageDate) - dateOrdinal(b.imageDate));
+    if (!valid.length) {
+      sel.innerHTML = '<option value="">No dated panoramas found</option>';
       return;
     }
-    const sorted = [...times].sort((a, b) => toOrdinal(a.description) - toOrdinal(b.description));
-    sel.innerHTML = sorted.map(t =>
-      `<option value="${t.pano}">${t.description}</option>`
-    ).join('');
-    sel.selectedIndex = sorted.length - 1;
-    const latest = sorted[sorted.length - 1];
+    sel.innerHTML = valid
+      .map(i => `<option value="${i.pano}">${fmtDate(i.imageDate)}</option>`)
+      .join('');
+    sel.selectedIndex = valid.length - 1;
+    const latest = valid[valid.length - 1];
     isUpdatingFromDate = true;
     panorama.setPano(latest.pano);
-    setCurrentDateDisplay(latest.description);
+    setCurrentDateDisplay(fmtDate(latest.imageDate));
     setTimeout(() => { isUpdatingFromDate = false; }, 900);
   }
 
-  // Step 1: resolve location → pano ID
-  streetViewService.getPanorama({
-    location,
-    radius: 50,
-    source: google.maps.StreetViewSource.OUTDOOR,
-  }, (locData, locStatus) => {
-    if (locStatus !== google.maps.StreetViewStatus.OK) {
-      sel.innerHTML = '<option value="">No Street View at this location</option>';
-      return;
-    }
-    const panoId = locData.location.pano;
-
-    // Step 2: fetch by pano ID — this populates the time[] array
-    streetViewService.getPanorama({ pano: panoId }, (data, status) => {
-      if (status !== google.maps.StreetViewStatus.OK || !data) {
-        applyDates(panoId, []);
+  // Step 1: location → current pano ID
+  streetViewService.getPanorama(
+    { location, radius: 50, source: google.maps.StreetViewSource.OUTDOOR },
+    (locData, locStatus) => {
+      if (locStatus !== google.maps.StreetViewStatus.OK) {
+        sel.innerHTML = '<option value="">No Street View at this location</option>';
         return;
       }
-      applyDates(panoId, data.time || []);
-    });
-  });
+      const currentPanoId = locData.location.pano;
+
+      // Step 2: current pano ID → time[] (list of historical pano IDs)
+      streetViewService.getPanorama({ pano: currentPanoId }, (data, status) => {
+        if (status !== google.maps.StreetViewStatus.OK || !data) {
+          populate([{ pano: currentPanoId, imageDate: locData.imageDate }]);
+          return;
+        }
+        const times = data.time || [];
+        if (!times.length) {
+          populate([{ pano: currentPanoId, imageDate: data.imageDate }]);
+          return;
+        }
+
+        // Step 3: fetch each historical pano individually for its .imageDate ("YYYY-MM")
+        // .description is unreliable across API versions — use .imageDate instead
+        const results = [];
+        let pending = times.length;
+        times.forEach(t => {
+          const pid = t.pano;
+          if (!pid) { if (!--pending) populate(results); return; }
+          streetViewService.getPanorama({ pano: pid }, (d, s) => {
+            if (s === google.maps.StreetViewStatus.OK && d?.imageDate) {
+              results.push({ pano: pid, imageDate: d.imageDate });
+            }
+            if (!--pending) populate(results);
+          });
+        });
+      });
+    }
+  );
 }
 
 function dateSelectChangeHandler() {
@@ -833,7 +856,7 @@ function searchLocation() {
   if (!address) return;
 
   const btn = document.getElementById('search-btn');
-  btn.textContent = '…';
+  btn.textContent = '�';
   btn.disabled = true;
 
   geocoder.geocode({ address }, (results, status) => {
@@ -879,12 +902,12 @@ function setConfidence(val) {
 // GOOGLE SHEETS LOGGING
 // ================================================================
 // Silently POSTs each new observation to your Apps Script web app.
-// Fails gracefully — local CSV remains the observer's copy.
+// Fails gracefully � local CSV remains the observer's copy.
 function sendToSheet(obs) {
   const url = window.SHEETS_WEBHOOK_URL;
-  if (!url || url === 'https://script.google.com/macros/s/AKfycbx41lxp65_OJcSts1TB4BvYbelIOeDz470ipOp_0h0f5I4I_mzRcBLjnYU-QPZ2CUy2/exec') return;
+  if (!url || url === 'REPLACE_WITH_YOUR_SCRIPT_URL') return;
   try {
-    // GET request with data as URL param — most reliable for Apps Script cross-origin.
+    // GET request with data as URL param � most reliable for Apps Script cross-origin.
     // Replace doPost with doGet in your Apps Script (see config.js.example).
     const params = new URLSearchParams({ data: JSON.stringify(obs) });
     fetch(`${url}?${params.toString()}`, { mode: 'no-cors' }).catch(() => {});
@@ -930,11 +953,11 @@ function recordObservation() {
 
   if (editingIndex !== null) {
     observations[editingIndex] = obs;
-    showToast('Observation updated ✓', 'success');
+    showToast('Observation updated ?', 'success');
   } else {
     observations.push(obs);
     sendToSheet(obs); // Log to master Google Sheet (new observations only)
-    showToast('Observation recorded ✓', 'success');
+    showToast('Observation recorded ?', 'success');
   }
 
   saveObservations();
@@ -959,7 +982,7 @@ function resetForm() {
   document.getElementById('edit-bar').classList.remove('visible');
   const btn = document.getElementById('record-btn');
   btn.className = 'btn btn-primary btn-block';
-  btn.innerHTML = 'Record <kbd>Ctrl+↵</kbd>';
+  btn.innerHTML = 'Record <kbd>Ctrl+?</kbd>';
 }
 
 function cancelEdit() {
@@ -982,14 +1005,14 @@ function renderObservationLog() {
         <span class="obs-feature">${esc(obs.feature)}</span>
         <span class="obs-actions">
           <button class="obs-btn" onclick="editObservation(${i})">Edit</button>
-          <button class="obs-btn del" onclick="deleteObservation(${i})" title="Delete">✕</button>
+          <button class="obs-btn del" onclick="deleteObservation(${i})" title="Delete">?</button>
         </span>
       </div>
-      <div class="obs-change">${esc(obs.featurechange || '—')}</div>
+      <div class="obs-change">${esc(obs.featurechange || '�')}</div>
       <div class="obs-meta">
-        ${esc(obs.imageDate || '—')}${obs.estyear ? ' · est. ' + esc(obs.estyear) : ''} · conf. ${obs.confidence || '—'}/5${obs.observer ? ' · ' + esc(obs.observer) : ''}
+        ${esc(obs.imageDate || '�')}${obs.estyear ? ' � est. ' + esc(obs.estyear) : ''} � conf. ${obs.confidence || '�'}/5${obs.observer ? ' � ' + esc(obs.observer) : ''}
       </div>
-      <div class="obs-meta">${esc(obs.streetAddress || '—')}</div>
+      <div class="obs-meta">${esc(obs.streetAddress || '�')}</div>
     </div>
   `).join('');
 }
@@ -1015,11 +1038,11 @@ function editObservation(i) {
   document.getElementById('edit-bar').classList.add('visible');
   const btn = document.getElementById('record-btn');
   btn.className = 'btn btn-primary btn-block editing';
-  btn.innerHTML = 'Update Observation <kbd>Ctrl+↵</kbd>';
+  btn.innerHTML = 'Update Observation <kbd>Ctrl+?</kbd>';
 
   // Scroll to form
   document.querySelector('.sidebar-scroll').scrollTo({ top: 0, behavior: 'smooth' });
-  showToast('Editing — update fields and click Update', 'warning');
+  showToast('Editing � update fields and click Update', 'warning');
 }
 
 function deleteObservation(i) {
@@ -1124,12 +1147,12 @@ function showToast(msg, type = 'info') {
 // KEYBOARD SHORTCUTS
 // ================================================================
 document.addEventListener('keydown', e => {
-  // Ctrl/Cmd + Enter → Record / Update
+  // Ctrl/Cmd + Enter ? Record / Update
   if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
     e.preventDefault();
     recordObservation();
   }
-  // Escape → Cancel edit
+  // Escape ? Cancel edit
   if (e.key === 'Escape' && editingIndex !== null) {
     cancelEdit();
   }
@@ -1143,7 +1166,7 @@ document.addEventListener('keydown', e => {
   const s   = document.createElement('script');
   s.src     = `https://maps.googleapis.com/maps/api/js?key=${key}&callback=initMap&v=weekly&loading=async`;
   s.async   = true;
-  s.onerror = () => showToast('Failed to load Google Maps — check your API key', 'error');
+  s.onerror = () => showToast('Failed to load Google Maps � check your API key', 'error');
   document.head.appendChild(s);
 })();
 </script>

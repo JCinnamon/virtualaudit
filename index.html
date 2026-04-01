@@ -558,11 +558,6 @@
         </div>
 
         <div class="field">
-          <label>Group / Map Area #</label>
-          <input type="text" id="group" placeholder="e.g. A3">
-        </div>
-
-        <div class="field">
           <label>Feature Type <span class="req">*</span></label>
           <select id="feature">
             <option value="">— Select —</option>
@@ -751,44 +746,54 @@ function updateAvailableDates(location) {
   sel.innerHTML = '<option value="">Loading dates…</option>';
   document.getElementById('current-date-pill').textContent = '';
 
-  streetViewService.getPanorama({
-    location,
-    radius: 50,
-    source: google.maps.StreetViewSource.OUTDOOR,
-  }, (data, status) => {
-    if (status !== google.maps.StreetViewStatus.OK) {
-      sel.innerHTML = '<option value="">No Street View at this location</option>';
+  const MONTHS = ['January','February','March','April','May','June',
+                  'July','August','September','October','November','December'];
+  const toOrdinal = s => {
+    const p = (s || '').trim().split(' ');
+    return parseInt(p[1] || 0) * 12 + MONTHS.indexOf(p[0]);
+  };
+
+  function applyDates(panoId, times) {
+    if (!times || !times.length) {
+      sel.innerHTML = `<option value="${panoId}">Current</option>`;
+      setCurrentDateDisplay('Current');
+      isUpdatingFromDate = true;
+      panorama.setPano(panoId);
+      setTimeout(() => { isUpdatingFromDate = false; }, 900);
       return;
     }
-
-    const times = data.time || [];
-    if (!times.length) {
-      // Only one pano available — still useful
-      sel.innerHTML = `<option value="${data.location.pano}">Current</option>`;
-      document.getElementById('currentImageryDate').value = 'Current';
-      return;
-    }
-
-    // Sort oldest → newest by parsing "Month YYYY"
-    const MONTHS = ['January','February','March','April','May','June',
-                    'July','August','September','October','November','December'];
-    const toOrdinal = s => {
-      const p = s.trim().split(' ');
-      return parseInt(p[1] || 0) * 12 + MONTHS.indexOf(p[0]);
-    };
     const sorted = [...times].sort((a, b) => toOrdinal(a.description) - toOrdinal(b.description));
-
     sel.innerHTML = sorted.map(t =>
       `<option value="${t.pano}">${t.description}</option>`
     ).join('');
-
-    // Default to most recent
     sel.selectedIndex = sorted.length - 1;
     const latest = sorted[sorted.length - 1];
     isUpdatingFromDate = true;
     panorama.setPano(latest.pano);
     setCurrentDateDisplay(latest.description);
     setTimeout(() => { isUpdatingFromDate = false; }, 900);
+  }
+
+  // Step 1: resolve location → pano ID
+  streetViewService.getPanorama({
+    location,
+    radius: 50,
+    source: google.maps.StreetViewSource.OUTDOOR,
+  }, (locData, locStatus) => {
+    if (locStatus !== google.maps.StreetViewStatus.OK) {
+      sel.innerHTML = '<option value="">No Street View at this location</option>';
+      return;
+    }
+    const panoId = locData.location.pano;
+
+    // Step 2: fetch by pano ID — this populates the time[] array
+    streetViewService.getPanorama({ pano: panoId }, (data, status) => {
+      if (status !== google.maps.StreetViewStatus.OK || !data) {
+        applyDates(panoId, []);
+        return;
+      }
+      applyDates(panoId, data.time || []);
+    });
   });
 }
 
@@ -879,14 +884,10 @@ function sendToSheet(obs) {
   const url = window.SHEETS_WEBHOOK_URL;
   if (!url || url === 'https://script.google.com/macros/s/AKfycbx41lxp65_OJcSts1TB4BvYbelIOeDz470ipOp_0h0f5I4I_mzRcBLjnYU-QPZ2CUy2/exec') return;
   try {
-    // mode: 'no-cors' required for Apps Script — response unreadable but POST succeeds.
-    // Content-Type must be text/plain (simple header) to avoid a preflight OPTIONS request.
-    fetch(url, {
-      method:  'POST',
-      mode:    'no-cors',
-      headers: { 'Content-Type': 'text/plain' },
-      body:    JSON.stringify(obs),
-    }).catch(() => {}); // Fail silently
+    // GET request with data as URL param — most reliable for Apps Script cross-origin.
+    // Replace doPost with doGet in your Apps Script (see config.js.example).
+    const params = new URLSearchParams({ data: JSON.stringify(obs) });
+    fetch(`${url}?${params.toString()}`, { mode: 'no-cors' }).catch(() => {});
   } catch (e) { /* silent */ }
 }
 
@@ -912,7 +913,6 @@ function recordObservation() {
   const obs = {
     timestamp:    new Date().toLocaleString(),
     observer:     document.getElementById('observer').value.trim(),
-    group:        document.getElementById('group').value.trim(),
     feature:      document.getElementById('feature').value,
     featurechange:document.getElementById('featurechange').value,
     estyear:      document.getElementById('estyear').value.trim(),
@@ -947,7 +947,7 @@ function recordObservation() {
 // FORM HELPERS
 // ================================================================
 function resetForm() {
-  ['group','estyear','explanation','notes','backupImageryDate'].forEach(id => {
+  ['estyear','explanation','notes','backupImageryDate'].forEach(id => {
     document.getElementById(id).value = '';
   });
   ['feature','featurechange'].forEach(id => {
@@ -1003,7 +1003,6 @@ function editObservation(i) {
   editingIndex = i;
 
   document.getElementById('observer').value           = obs.observer || '';
-  document.getElementById('group').value              = obs.group || '';
   document.getElementById('feature').value            = obs.feature || '';
   document.getElementById('featurechange').value      = obs.featurechange || '';
   document.getElementById('estyear').value            = obs.estyear || '';
@@ -1043,7 +1042,7 @@ function downloadDataset() {
   if (!observations.length) { showToast('No data to download', 'error'); return; }
 
   const cols = [
-    'timestamp','observer','group','feature','featurechange',
+    'timestamp','observer','feature','featurechange',
     'estyear','explanation','confidence','notes',
     'lat','lng','heading','pitch','imageDate','backupDate','streetAddress'
   ];

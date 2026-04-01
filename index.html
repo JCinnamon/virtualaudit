@@ -676,7 +676,9 @@ let observations   = [];
 let editingIndex   = null;
 let currentConfidence = 3;
 let currentAddress = '';
-let isUpdatingFromDate = false;
+let isUpdatingFromDate   = false;
+let _posUpdateTimer      = null;
+let _lastDateUpdatePos   = null; // position at last updateAvailableDates call
 let geocodeTimer   = null;
 
 // ================================================================
@@ -732,11 +734,23 @@ function initMap() {
 
   // Keep mini-map centred and reverse geocode on move
   panorama.addListener('position_changed', () => {
-    if (isUpdatingFromDate) return; // don't move map during date transitions
+    if (isUpdatingFromDate) return; // skip entirely during date transitions
     const pos = panorama.getPosition();
-    if (pos) {
-      map.setCenter(pos);
-      debouncedReverseGeocode(pos);
+    if (!pos) return;
+    map.setCenter(pos);
+    debouncedReverseGeocode(pos);
+
+    // Refresh dates when the user navigates significantly (pegman, walking).
+    // Distance gate (~30 m) prevents spurious calls from tiny historical-pano
+    // offsets; debounce waits for the user to settle before fetching.
+    // Crucially this increments _dateReqId, cancelling any stale async
+    // callbacks from a previous location that would otherwise call setPano().
+    const dlat = pos.lat() - (_lastDateUpdatePos ? _lastDateUpdatePos.lat() : pos.lat());
+    const dlng = pos.lng() - (_lastDateUpdatePos ? _lastDateUpdatePos.lng() : pos.lng());
+    const movedFar = !_lastDateUpdatePos || Math.sqrt(dlat*dlat + dlng*dlng) > 0.0003;
+    if (movedFar) {
+      clearTimeout(_posUpdateTimer);
+      _posUpdateTimer = setTimeout(() => updateAvailableDates(pos), 1500);
     }
   });
 
@@ -755,6 +769,7 @@ function initMap() {
 let _dateReqId = 0;
 
 function updateAvailableDates(location) {
+  _lastDateUpdatePos = location;           // record position for distance gating
   const myId = ++_dateReqId; // invalidates any in-flight request
   const sel = document.getElementById('imageDate');
   sel.innerHTML = '<option value="">Loading dates…</option>';

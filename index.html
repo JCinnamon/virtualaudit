@@ -707,6 +707,7 @@ function initMap() {
       motionTracking: false,
       motionTrackingControl: false,
       imageDateControl: false,
+      source: google.maps.StreetViewSource.OUTDOOR,
     }
   );
 
@@ -895,11 +896,32 @@ function searchLocation() {
     btn.disabled = false;
     if (status === 'OK' && results[0]) {
       const loc = results[0].geometry.location;
-      panorama.setPosition(loc);
-      map.setCenter(loc);
-      map.setZoom(17);
-      updateAvailableDates(loc);
-      input.value = '';
+      // Use StreetViewService with OUTDOOR filter to avoid user photospheres
+      streetViewService.getPanorama(
+        { location: loc, radius: 100, source: google.maps.StreetViewSource.OUTDOOR },
+        (data, svStatus) => {
+          if (svStatus === google.maps.StreetViewStatus.OK && data.location) {
+            // Block position_changed during the entire navigation sequence
+            isChangingDate = true;
+            isUpdatingPanorama = true;
+            panorama.setPano(data.location.pano);
+            map.setCenter(data.location.latLng);
+            map.setZoom(17);
+            selectedDateLabel = null; // new location — reset date preference
+            updateAvailableDates(data.location.latLng);
+            // Keep guards up long enough for position_changed to settle
+            setTimeout(() => { isChangingDate = false; isUpdatingPanorama = false; }, 600);
+          } else {
+            // No outdoor pano nearby — fall back to unfiltered
+            panorama.setPosition(loc);
+            map.setCenter(loc);
+            map.setZoom(17);
+            selectedDateLabel = null;
+            updateAvailableDates(loc);
+          }
+          input.value = '';
+        }
+      );
     } else {
       showToast('Location not found', 'error');
     }

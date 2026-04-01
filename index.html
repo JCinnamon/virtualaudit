@@ -1,422 +1,1153 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Virtual Street Audits</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
-    <style>
-        body, html {
-            margin: 0;
-            padding: 0;
-            height: 100%;
-            font-family: Arial, sans-serif;
-        }
-        .container {
-            display: grid;
-            grid-template-columns: 30% 70%;
-            grid-template-rows: 60% 40%;
-            height: 100vh;
-        }
-        #controlArea {
-            grid-column: 1;
-            grid-row: 1;
-            padding: 10px;
-            overflow-y: auto;
-        }
-        #map {
-            grid-column: 1;
-            grid-row: 2;
-        }
-        #pano {
-            grid-column: 2;
-            grid-row: 1 / span 2;
-        }
-        #form, #dateSelector, #buttons {
-            margin-bottom: 10px;
-        }
-        #observationCount {
-            margin-top: 10px;
-            font-weight: bold;
-        }
-        h3 {
-            margin-top: 0;
-            margin-bottom: 1;
-        }
-        h4 {
-            margin-top: 0;
-            margin-bottom: 1;
-        }
-        select {
-            width: 50%;
-            margin-bottom: 10px;
-        }
-        textarea {
-            width: 100%;
-            margin-bottom: 10px;
-        }
-        
-        button {
-            margin-right: 10px;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Virtual Street Audit Tool</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    /* ── Design System ───────────────────────────────────────── */
+    :root {
+      --primary:       #2c5f7a;
+      --primary-dark:  #1e4358;
+      --accent:        #1a9080;
+      --accent-hover:  #168070;
+      --accent-light:  #e6f4f1;
+      --border:        #dde8ed;
+      --bg-sidebar:    #f7f9fb;
+      --bg-white:      #ffffff;
+      --text:          #1a2332;
+      --text-muted:    #6b7a8d;
+      --danger:        #c0392b;
+      --warning:       #d35400;
+      --success:       #1a9080;
+      --radius:        5px;
+      --font:          'Inter', system-ui, -apple-system, sans-serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      overflow: hidden;
+      font-family: var(--font);
+      color: var(--text);
+      font-size: 14px;
+      line-height: 1.4;
+    }
+
+    /* ── App Layout ──────────────────────────────────────────── */
+    #app {
+      display: flex;
+      height: 100vh;
+    }
+
+    /* ── Sidebar ─────────────────────────────────────────────── */
+    #sidebar {
+      width: 316px;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-sidebar);
+      border-right: 1px solid var(--border);
+      overflow: hidden;
+      z-index: 10;
+    }
+
+    .sidebar-header {
+      background: var(--primary);
+      color: white;
+      padding: 0.8rem 1.1rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+    }
+
+    .sidebar-header h1 {
+      font-size: 0.9375rem;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+
+    .obs-badge {
+      background: var(--accent);
+      color: white;
+      font-size: 0.6875rem;
+      font-weight: 700;
+      padding: 2px 9px;
+      border-radius: 999px;
+      min-width: 24px;
+      text-align: center;
+      transition: background 0.2s;
+    }
+
+    .sidebar-scroll {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
+
+    .sidebar-section {
+      padding: 0.8rem 1.1rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .section-title {
+      font-size: 0.65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      margin-bottom: 0.575rem;
+    }
+
+    .section-title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.575rem;
+    }
+
+    .section-title-row .section-title { margin-bottom: 0; }
+
+    /* ── Location Search ─────────────────────────────────────── */
+    .search-row {
+      display: flex;
+      gap: 0.35rem;
+      margin-bottom: 0.3rem;
+    }
+
+    .search-row input { flex: 1; }
+
+    #current-address-display {
+      font-size: 0.6875rem;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      min-height: 0.95rem;
+      padding-top: 1px;
+    }
+
+    /* ── Date Selector ───────────────────────────────────────── */
+    #imageDate { margin-bottom: 0.3rem; }
+
+    .current-date-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.6875rem;
+      color: var(--accent);
+      font-weight: 600;
+      min-height: 0.95rem;
+    }
+
+    /* ── Form ────────────────────────────────────────────────── */
+    .field {
+      margin-bottom: 0.45rem;
+    }
+
+    .field label {
+      display: block;
+      font-size: 0.7rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      margin-bottom: 0.175rem;
+    }
+
+    .field label .req {
+      color: var(--danger);
+      margin-left: 2px;
+      font-size: 0.65rem;
+    }
+
+    input[type="text"],
+    input[type="number"],
+    select,
+    textarea {
+      width: 100%;
+      padding: 0.32rem 0.55rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      font-family: var(--font);
+      font-size: 0.8rem;
+      color: var(--text);
+      background: var(--bg-white);
+      transition: border-color 0.14s, box-shadow 0.14s;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+
+    select {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236b7a8d' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 0.55rem center;
+      padding-right: 1.75rem;
+    }
+
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(26, 144, 128, 0.12);
+    }
+
+    input.error, select.error {
+      border-color: var(--danger) !important;
+      box-shadow: 0 0 0 3px rgba(192, 57, 43, 0.1) !important;
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 50px;
+      line-height: 1.45;
+    }
+
+    .field-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.45rem;
+    }
+
+    input[type="text"]:read-only {
+      background: #f0f4f7;
+      color: var(--text-muted);
+      cursor: default;
+    }
+
+    /* ── Confidence Rating ───────────────────────────────────── */
+    .conf-row {
+      display: flex;
+      gap: 3px;
+    }
+
+    .conf-btn {
+      flex: 1;
+      height: 26px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: white;
+      font-size: 0.7rem;
+      font-family: var(--font);
+      font-weight: 500;
+      cursor: pointer;
+      color: var(--text-muted);
+      transition: all 0.12s;
+      line-height: 1;
+    }
+
+    .conf-btn.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: white;
+      font-weight: 600;
+    }
+
+    .conf-btn:hover:not(.active) {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: var(--accent-light);
+    }
+
+    /* ── Buttons ─────────────────────────────────────────────── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.35rem;
+      padding: 0.38rem 0.8rem;
+      border-radius: var(--radius);
+      font-family: var(--font);
+      font-size: 0.8rem;
+      font-weight: 500;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: all 0.14s;
+      white-space: nowrap;
+      line-height: 1;
+    }
+
+    .btn-block { width: 100%; }
+
+    .btn-primary {
+      background: var(--accent);
+      color: white;
+      border-color: var(--accent);
+    }
+    .btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+
+    .btn-primary.editing {
+      background: var(--warning);
+      border-color: var(--warning);
+    }
+    .btn-primary.editing:hover { background: #b34500; border-color: #b34500; }
+
+    .btn-outline {
+      background: white;
+      color: var(--text);
+      border-color: var(--border);
+    }
+    .btn-outline:hover { background: var(--accent-light); border-color: #b3d8d4; color: var(--accent); }
+
+    .btn-danger {
+      background: white;
+      color: var(--danger);
+      border-color: #e0c0bd;
+    }
+    .btn-danger:hover { background: #fdf0ef; border-color: var(--danger); }
+
+    .btn-sm { padding: 0.2rem 0.55rem; font-size: 0.6875rem; }
+
+    .btn kbd {
+      font-family: var(--font);
+      font-size: 0.6rem;
+      background: rgba(255,255,255,0.22);
+      padding: 1px 4px;
+      border-radius: 3px;
+      letter-spacing: 0;
+      font-weight: 400;
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 0.35rem;
+    }
+
+    /* ── Edit Bar ────────────────────────────────────────────── */
+    #edit-bar {
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      background: #fff4e6;
+      border: 1px solid #fdd5a0;
+      border-radius: var(--radius);
+      padding: 0.35rem 0.65rem;
+      font-size: 0.725rem;
+      color: var(--warning);
+      font-weight: 500;
+      margin-bottom: 0.5rem;
+    }
+    #edit-bar.visible { display: flex; }
+
+    /* ── Observation Log ─────────────────────────────────────── */
+    .obs-item {
+      padding: 0.475rem 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .obs-item:last-child { border-bottom: none; }
+
+    .obs-item-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 0.25rem;
+      margin-bottom: 1px;
+    }
+
+    .obs-feature {
+      font-size: 0.775rem;
+      font-weight: 600;
+      color: var(--text);
+      flex: 1;
+      min-width: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .obs-change {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      margin-bottom: 1px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .obs-meta {
+      font-size: 0.67rem;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .obs-actions {
+      display: flex;
+      gap: 3px;
+      flex-shrink: 0;
+    }
+
+    .obs-btn {
+      padding: 2px 7px;
+      border-radius: 3px;
+      font-size: 0.625rem;
+      font-family: var(--font);
+      font-weight: 500;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: white;
+      color: var(--text-muted);
+      transition: all 0.12s;
+    }
+    .obs-btn:hover { background: var(--accent-light); color: var(--accent); border-color: #b3d8d4; }
+    .obs-btn.del:hover { background: #fdf0ef; color: var(--danger); border-color: #e0c0bd; }
+
+    .empty-log {
+      text-align: center;
+      padding: 1.25rem 0;
+      color: var(--text-muted);
+      font-size: 0.75rem;
+    }
+
+    /* ── Map Area ────────────────────────────────────────────── */
+    #map-area {
+      flex: 1;
+      position: relative;
+      background: #1a1a2e;
+      overflow: hidden;
+    }
+
+    #pano {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    #map {
+      position: absolute;
+      bottom: 16px;
+      right: 16px;
+      width: 220px;
+      height: 165px;
+      border-radius: 8px;
+      border: 2px solid rgba(255, 255, 255, 0.9);
+      box-shadow: 0 4px 18px rgba(0, 0, 0, 0.38);
+      z-index: 5;
+      overflow: hidden;
+    }
+
+    /* ── Toast Notifications ─────────────────────────────────── */
+    #toasts {
+      position: fixed;
+      bottom: 20px;
+      left: 332px;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      pointer-events: none;
+    }
+
+    .toast {
+      padding: 9px 16px;
+      border-radius: var(--radius);
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: white;
+      box-shadow: 0 4px 18px rgba(0, 0, 0, 0.2);
+      animation: toastIn 0.18s ease;
+      max-width: 300px;
+    }
+
+    .toast.success { background: var(--accent); }
+    .toast.error   { background: var(--danger); }
+    .toast.info    { background: var(--primary); }
+    .toast.warning { background: var(--warning); }
+
+    @keyframes toastIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── Sidebar Footer ─────────────────────────────────────── */
+    .sidebar-footer {
+      background: var(--primary-dark);
+      color: rgba(255,255,255,0.5);
+      text-align: center;
+      font-size: 0.725rem;
+      padding: 0.5rem 1rem;
+      flex-shrink: 0;
+      letter-spacing: 0.01em;
+    }
+    .sidebar-footer a {
+      color: rgba(255,255,255,0.75);
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+    .sidebar-footer a:hover { color: #fff; }
+
+    /* ── Loading overlay ─────────────────────────────────────── */
+    #pano-loading {
+      position: absolute;
+      inset: 0;
+      background: #1a1a2e;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: rgba(255,255,255,0.5);
+      font-size: 0.875rem;
+      font-family: var(--font);
+      z-index: 1;
+      pointer-events: none;
+      transition: opacity 0.4s;
+    }
+    #pano-loading.hidden { opacity: 0; }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <div id="controlArea">
-            <h3>Virtual Street Audit Tool</h3>
-            <div id="dateSelector">
-                <label for="imageDate">Select Image Date:</label>
-                <select id="imageDate"></select>
-            </div>
-            <form id="form">
-                <h4>Record instances of urban change</h4>
-                <label for="currentImageryDate" cols="6">Current Imagery Date:</label>
-                <input type="text" id="currentImageryDate" name="currentImageryDate" cols="6" readonly>
-                <br>
-                <label for="backupImageryDate">Backup Date:</label>
-                <input type="text" id="backupImageryDate" name="backupImageryDate" readonly>
-                <br>
-                <label for="group">Group/map area number</label>
-                <textarea id="group" name="group" rows="1" cols="6"></textarea>
-                
-                <label for="feature">Feature/object type:</label>
-                <select id="feature" name="feature">
-                    <option value="apartment">Apartment/condo building</option>
-                    <option value="office">Office building</option>
-                    <option value="house">House</option>
-                    <option value="restaurant">Restaurant/bar</option>
-                    <option value="store">Store</option>
-                    <option value="construction">Construction site</option>
-                    <option value="street">Street</option>
-                    <option value="infrastructure">Infrastructure</option>
-                    <option value="public space">Public space</option>
-                    <option value="greenspace">Green space</option>
-                    <option value="cycling">Cycling lanes/infrastructure</option>
-                    <option value="trees">Trees/vegetation</option>
-                    <option value="art">Art/mural</option>
-                    <option value="other">Other</option>
-                </select>
-                <label for="featurechange">Feature/object change:</label>
-                <select id="featurechange" name="featurechange">
-                    <option value="new feature type">Changed to new feature</option>
-                    <option value="same feature type">Changed but same feature type</option>
-                    <option value="feature upgrade/reno">Same feature but upgraded/renovated</option>
-                    <option value="not applicable">Not applicable</option>
-                </select>
-                <label for="estyear">Estimated year of change:</label>
-                <textarea id="estyear" name="estyear" rows="1" cols="6"></textarea>
-                <label for="explanation">Explanation of change:</label>
-                <textarea id="explanation" name="explanation" rows="2" placeholder="Explain the observed change"></textarea>
-            </form>
-            <div id="buttons">
-                <button id="recordData">Record Data</button>
-                <button id="downloadDataset">Download Dataset</button>
-                <button id="clearData">Clear All Data</button>
-            </div>
-            <div id="observationCount"></div>
-            <br>
-         </div>
-        <div id="map"></div>
-        <div id="pano"></div>
+
+<div id="app">
+
+  <!-- ── Sidebar ──────────────────────────────────────────────── -->
+  <aside id="sidebar">
+
+    <div class="sidebar-header">
+      <h1>Virtual Street Audit</h1>
+      <span class="obs-badge" id="obs-badge">0</span>
     </div>
-    <script>
-        let map, panorama, drawingManager;
-        let selectedArea;
-        let streetViewService;
-        let geocoder;
-        let observations = [];
-        let isChangingDate = false;
-        let currentPanoData = null;
-        let selectedDate = null;
-        let isUpdatingPanorama = false;
-        let clearDataBtn;
 
+    <div class="sidebar-scroll">
+
+      <!-- Location -->
+      <section class="sidebar-section">
+        <div class="section-title">Location</div>
+        <div class="search-row">
+          <input type="text" id="address-input" placeholder="Search address or place…">
+          <button class="btn btn-outline btn-sm" id="search-btn" onclick="searchLocation()">Go</button>
+        </div>
+        <div id="current-address-display">—</div>
+      </section>
+
+      <!-- Imagery Date -->
+      <section class="sidebar-section">
+        <div class="section-title">Imagery Date</div>
+        <select id="imageDate" onchange="dateSelectChangeHandler()">
+          <option value="">Loading…</option>
+        </select>
+        <div class="current-date-pill" id="current-date-pill"></div>
+      </section>
+
+      <!-- Record Observation -->
+      <section class="sidebar-section">
+        <div class="section-title">Record Observation</div>
+
+        <div id="edit-bar">
+          ✎ Editing observation
+          <button class="btn btn-outline btn-sm" onclick="cancelEdit()" style="padding:2px 8px;font-size:0.625rem">Cancel (Esc)</button>
+        </div>
+
+        <div class="field">
+          <label>Observer ID</label>
+          <input type="text" id="observer" placeholder="Your name or ID">
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label>Current Date</label>
+            <input type="text" id="currentImageryDate" readonly placeholder="—">
+          </div>
+          <div class="field">
+            <label>Backup Date</label>
+            <input type="text" id="backupImageryDate" placeholder="Optional">
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Group / Map Area #</label>
+          <input type="text" id="group" placeholder="e.g. A3">
+        </div>
+
+        <div class="field">
+          <label>Feature Type <span class="req">*</span></label>
+          <select id="feature">
+            <option value="">— Select —</option>
+            <option value="Apartment/Condo">Apartment / Condo Building</option>
+            <option value="Office Building">Office Building</option>
+            <option value="House">House</option>
+            <option value="Restaurant/Bar">Restaurant / Bar</option>
+            <option value="Store">Store</option>
+            <option value="Construction Site">Construction Site</option>
+            <option value="Street">Street</option>
+            <option value="Infrastructure">Infrastructure</option>
+            <option value="Public Space">Public Space</option>
+            <option value="Green Space">Green Space</option>
+            <option value="Cycling Infrastructure">Cycling Infrastructure</option>
+            <option value="Trees/Vegetation">Trees / Vegetation</option>
+            <option value="Art/Mural">Art / Mural</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>Change Type <span class="req">*</span></label>
+          <select id="featurechange">
+            <option value="">— Select —</option>
+            <option value="Changed to new feature type">Changed to new feature type</option>
+            <option value="Changed but same feature type">Changed but same feature type</option>
+            <option value="Same feature, upgraded/renovated">Same feature, upgraded / renovated</option>
+            <option value="Not applicable">Not applicable</option>
+          </select>
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label>Est. Year of Change</label>
+            <input type="number" id="estyear" placeholder="e.g. 2018" min="1900" max="2035">
+          </div>
+          <div class="field">
+            <label>Confidence (1–5)</label>
+            <div class="conf-row">
+              <button class="conf-btn" data-val="1" onclick="setConfidence(1)">1</button>
+              <button class="conf-btn" data-val="2" onclick="setConfidence(2)">2</button>
+              <button class="conf-btn active" data-val="3" onclick="setConfidence(3)">3</button>
+              <button class="conf-btn" data-val="4" onclick="setConfidence(4)">4</button>
+              <button class="conf-btn" data-val="5" onclick="setConfidence(5)">5</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Explanation of Change</label>
+          <textarea id="explanation" placeholder="Describe what changed…" rows="2"></textarea>
+        </div>
+
+        <div class="field">
+          <label>Notes</label>
+          <textarea id="notes" placeholder="Additional observations…" rows="2"></textarea>
+        </div>
+
+        <button class="btn btn-primary btn-block" id="record-btn" onclick="recordObservation()">
+          Record <kbd>Ctrl+↵</kbd>
+        </button>
+      </section>
+
+      <!-- Observations Log -->
+      <section class="sidebar-section">
+        <div class="section-title-row">
+          <span class="section-title">Observations (<span id="obs-count">0</span>)</span>
+          <div class="btn-group">
+            <button class="btn btn-outline btn-sm" onclick="downloadDataset()">↓ CSV</button>
+            <button class="btn btn-danger btn-sm" onclick="clearAllData()">Clear</button>
+          </div>
+        </div>
+        <div id="obs-log">
+          <div class="empty-log">No observations yet</div>
+        </div>
+      </section>
+
+    </div><!-- end .sidebar-scroll -->
+
+    <div class="sidebar-footer">
+      <a href="https://jcinnamon.github.io/">J Cinnamon</a>
+      &nbsp;·&nbsp; Virtual Street Audit &nbsp;·&nbsp; UBC Okanagan
+    </div>
+  </aside>
+
+  <!-- ── Map + Panorama ──────────────────────────────────────── -->
+  <div id="map-area">
+    <div id="pano-loading">Loading Street View…</div>
+    <div id="pano"></div>
+    <div id="map"></div>
+  </div>
+
+</div><!-- end #app -->
+
+<!-- Toast container -->
+<div id="toasts"></div>
+
+<script>
+// ================================================================
+// CONFIG
+// ================================================================
+// Maps API key: loaded from config.js (see config.js.example).
+//   For deployment: replace REPLACE_WITH_YOUR_KEY below.
+//   For local dev:  create config.js → window.MAPS_API_KEY = 'your-key';
+//   In Google Cloud Console, restrict this key to: https://jcinnamon.github.io
+//
+// Sheets webhook: set window.SHEETS_WEBHOOK_URL in config.js to your
+//   Google Apps Script web app URL (see setup instructions in config.js.example).
+//   Every new observation is silently posted to your Google Sheet.
+
+// ================================================================
+// STATE
+// ================================================================
+let map, panorama, streetViewService, geocoder;
+let observations   = [];
+let editingIndex   = null;
+let currentConfidence = 3;
+let currentAddress = '';
+let isUpdatingFromDate = false;
+let geocodeTimer   = null;
+
+// ================================================================
+// GOOGLE MAPS INIT  (called by Maps API callback)
+// ================================================================
 function initMap() {
-            const defaultLocation = { lat: 49.886324, lng: -119.493484 }; // Kelowna
+  const defaultCenter = { lat: 49.8875, lng: -119.4961 }; // Bernard Ave, Kelowna
 
-            map = new google.maps.Map(document.getElementById("map"), {
-                center: defaultLocation,
-                zoom: 14,
-            });
+  map = new google.maps.Map(document.getElementById('map'), {
+    center: defaultCenter,
+    zoom: 17,
+    disableDefaultUI: true,
+    zoomControl: true,
+    streetViewControl: false,
+    mapTypeControl: false,
+  });
 
-            panorama = new google.maps.StreetViewPanorama(
-                document.getElementById("pano"),
-                {
-                    position: defaultLocation,
-                    pov: { heading: 165, pitch: 0 },
-                    zoom: 1,
-                    visible: true
-                }
-            );
+  panorama = new google.maps.StreetViewPanorama(
+    document.getElementById('pano'), {
+      position: defaultCenter,
+      pov: { heading: 165, pitch: 0 },
+      zoom: 1,
+      addressControl: true,
+      fullscreenControl: false,
+      motionTracking: false,
+      motionTrackingControl: false,
+      imageDateControl: false,
+    }
+  );
 
-            map.setStreetView(panorama);
+  map.setStreetView(panorama);
 
-            drawingManager = new google.maps.drawing.DrawingManager({
-                drawingMode: google.maps.drawing.OverlayType.RECTANGLE,
-                drawingControl: true,
-                drawingControlOptions: {
-                    position: google.maps.ControlPosition.TOP_CENTER,
-                    drawingModes: ['rectangle'],
-                },
-            });
+  streetViewService = new google.maps.StreetViewService();
+  geocoder          = new google.maps.Geocoder();
 
-            drawingManager.setMap(map);
+  // Hide loading overlay once pano tiles start rendering
+  panorama.addListener('tiles_loaded', () => {
+    document.getElementById('pano-loading').classList.add('hidden');
+  });
 
-            google.maps.event.addListener(drawingManager, 'overlaycomplete', function(event) {
-                if (selectedArea) {
-                    selectedArea.setMap(null);
-                }
-                selectedArea = event.overlay;
-                drawingManager.setDrawingMode(null);
-            });
+  // Sync date selector when user navigates manually
+  panorama.addListener('pano_changed', syncDateSelector);
 
-            streetViewService = new google.maps.StreetViewService();
-            geocoder = new google.maps.Geocoder();
+  // Keep mini-map centred and reverse geocode on move
+  panorama.addListener('position_changed', () => {
+    const pos = panorama.getPosition();
+    if (pos) {
+      map.setCenter(pos);
+      debouncedReverseGeocode(pos);
+    }
+  });
 
-            google.maps.event.addListener(panorama, 'position_changed', function() {
-                if (!isChangingDate && !isUpdatingPanorama) {
-                    isUpdatingPanorama = true;
-                    setTimeout(() => {
-                        updateImageDateSelector();
-                        isUpdatingPanorama = false;
-                    }, 500);
-                }
-            });
+  // Address input: Enter key triggers search
+  document.getElementById('address-input')
+    .addEventListener('keydown', e => { if (e.key === 'Enter') searchLocation(); });
 
-            updateImageDateSelector();
-            loadObservations();
-            updateObservationCount();
+  loadObservations();
+  loadSavedObserver();
+  updateAvailableDates(defaultCenter);
+}
 
-            document.getElementById('recordData').addEventListener('click', recordObservation);
-            document.getElementById('downloadDataset').addEventListener('click', downloadDataset);
-            clearDataBtn = document.getElementById('clearData');
-            clearDataBtn.addEventListener('click', clearAllData);
-        }
+// ================================================================
+// DATES
+// ================================================================
+function updateAvailableDates(location) {
+  const sel = document.getElementById('imageDate');
+  sel.innerHTML = '<option value="">Loading dates…</option>';
+  document.getElementById('current-date-pill').textContent = '';
 
-        function updateImageDateSelector() {
-            const dateSelect = document.getElementById('imageDate');
-            const currentImageryDateInput = document.getElementById('currentImageryDate');
-            const backupImageryDateInput = document.getElementById('backupImageryDate');
-            dateSelect.innerHTML = '';
+  streetViewService.getPanorama({
+    location,
+    radius: 50,
+    source: google.maps.StreetViewSource.OUTDOOR,
+  }, (data, status) => {
+    if (status !== google.maps.StreetViewStatus.OK) {
+      sel.innerHTML = '<option value="">No Street View at this location</option>';
+      return;
+    }
 
-            const request = {
-                location: panorama.getPosition(),
-                radius: 50,
-                source: google.maps.StreetViewSource.OUTDOOR
-            };
+    const times = data.time || [];
+    if (!times.length) {
+      // Only one pano available — still useful
+      sel.innerHTML = `<option value="${data.location.pano}">Current</option>`;
+      document.getElementById('currentImageryDate').value = 'Current';
+      return;
+    }
 
-            streetViewService.getPanorama(request, function(data, status) {
-                console.log("StreetViewService response:", data);
-                
-                // Update backup date field
-                if (data.imageDate) {
-                    backupImageryDateInput.value = data.imageDate;
-                } else {
-                    backupImageryDateInput.value = 'No backup date available';
-                }
+    // Sort oldest → newest by parsing "Month YYYY"
+    const MONTHS = ['January','February','March','April','May','June',
+                    'July','August','September','October','November','December'];
+    const toOrdinal = s => {
+      const p = s.trim().split(' ');
+      return parseInt(p[1] || 0) * 12 + MONTHS.indexOf(p[0]);
+    };
+    const sorted = [...times].sort((a, b) => toOrdinal(a.description) - toOrdinal(b.description));
 
-                if (status === google.maps.StreetViewStatus.OK) {
-                    currentPanoData = data;
-                    if (data.time && data.time.length > 0) {
-                        console.log("Time data:", data.time);
-                        
-                        // Create a map of panos to dates for backup date lookup
-                        const panoDateMap = new Map();
-                        
-                        data.time.forEach((timeObj, index) => {
-                            console.log(`Processing time object ${index}:`, timeObj);
-                            const option = document.createElement('option');
-                            option.value = timeObj.pano;
-                            
-                            // Try all possible property names for the date
-                            const dateProp = timeObj.Iu || timeObj.su || timeObj.ou || timeObj.tu || 
-                                           Object.values(timeObj).find(prop => prop instanceof Date);
-                            
-                            let dateString = 'Unknown Date';
-                            if (dateProp) {
-                                console.log(`Date property found:`, dateProp);
-                                dateString = dateProp.toLocaleDateString(undefined, { year: 'numeric', month: 'long' });
-                            } else if (data.imageDate) {
-                                // Use imageDate as backup for the current panorama
-                                if (timeObj.pano === data.location.pano) {
-                                    console.log(`Using imageDate from response:`, data.imageDate);
-                                    // Convert YYYY-MM format to readable date
-                                    const [year, month] = data.imageDate.split('-');
-                                    const date = new Date(year, month - 1);
-                                    dateString = date.toLocaleDateString(undefined, { year: 'numeric', month: 'long' });
-                                }
-                            }
-                            
-                            panoDateMap.set(timeObj.pano, dateString);
-                            console.log(`Resulting date string:`, dateString);
-                            option.textContent = dateString;
-                            dateSelect.appendChild(option);
+    sel.innerHTML = sorted.map(t =>
+      `<option value="${t.pano}">${t.description}</option>`
+    ).join('');
 
-                            // If this is the current panorama, update the currentImageryDate input
-                            if (timeObj.pano === panorama.getPano()) {
-                                currentImageryDateInput.value = dateString;
-                            }
-                        });
+    // Default to most recent
+    sel.selectedIndex = sorted.length - 1;
+    const latest = sorted[sorted.length - 1];
+    isUpdatingFromDate = true;
+    panorama.setPano(latest.pano);
+    setCurrentDateDisplay(latest.description);
+    setTimeout(() => { isUpdatingFromDate = false; }, 900);
+  });
+}
 
-                        // Store the panoDateMap for later use
-                        window.panoDateMap = panoDateMap;
+function dateSelectChangeHandler() {
+  const sel = document.getElementById('imageDate');
+  if (!sel.value) return;
+  isUpdatingFromDate = true;
+  panorama.setPano(sel.value);
+  setCurrentDateDisplay(sel.options[sel.selectedIndex].text);
+  setTimeout(() => { isUpdatingFromDate = false; }, 900);
+}
 
-                        // Select the previously selected date if available
-                        const dateToSelect = selectedDate || dateSelect.options[0].textContent;
-                        for (let i = 0; i < dateSelect.options.length; i++) {
-                            if (dateSelect.options[i].textContent === dateToSelect) {
-                                dateSelect.selectedIndex = i;
-                                break;
-                            }
-                        }
+function syncDateSelector() {
+  if (isUpdatingFromDate) return;
+  const panoId = panorama.getPano();
+  const sel    = document.getElementById('imageDate');
+  for (let i = 0; i < sel.options.length; i++) {
+    if (sel.options[i].value === panoId) {
+      sel.selectedIndex = i;
+      setCurrentDateDisplay(sel.options[i].text);
+      return;
+    }
+  }
+}
 
-                        if (!isChangingDate) {
-                            panorama.setPano(dateSelect.value);
-                        }
+function setCurrentDateDisplay(label) {
+  document.getElementById('currentImageryDate').value = label || '';
+  document.getElementById('current-date-pill').textContent = label || '';
+}
 
-                        dateSelect.removeEventListener('change', dateSelectChangeHandler);
-                        dateSelect.addEventListener('change', dateSelectChangeHandler);
-                    } else {
-                        console.log("No time data available");
-                        const option = document.createElement('option');
-                        option.textContent = 'No historical imagery available';
-                        dateSelect.appendChild(option);
-                        currentImageryDateInput.value = 'No date available';
-                    }
-                } else {
-                    console.error('Street View data not found for this location.');
-                    currentImageryDateInput.value = 'No date available';
-                }
-            });
-        }
+// ================================================================
+// LOCATION SEARCH
+// ================================================================
+function searchLocation() {
+  const input   = document.getElementById('address-input');
+  const address = input.value.trim();
+  if (!address) return;
 
-        function dateSelectChangeHandler() {
-            selectedDate = this.options[this.selectedIndex].textContent;
-            const selectedPano = this.value;
-            if (selectedPano !== panorama.getPano()) {
-                isChangingDate = true;
-                panorama.setPano(selectedPano);
-                document.getElementById('currentImageryDate').value = window.panoDateMap.get(selectedPano) || selectedDate;
-                setTimeout(() => {
-                    isChangingDate = false;
-                }, 100);
-            }
-        }
+  const btn = document.getElementById('search-btn');
+  btn.textContent = '…';
+  btn.disabled = true;
 
+  geocoder.geocode({ address }, (results, status) => {
+    btn.textContent = 'Go';
+    btn.disabled = false;
+    if (status === 'OK' && results[0]) {
+      const loc = results[0].geometry.location;
+      panorama.setPosition(loc);
+      map.setCenter(loc);
+      map.setZoom(17);
+      updateAvailableDates(loc);
+      input.value = '';
+    } else {
+      showToast('Location not found', 'error');
+    }
+  });
+}
 
-function getStreetAddress(lat, lng, callback) {
-            const latlng = { lat: lat, lng: lng };
-            geocoder.geocode({ location: latlng }, (results, status) => {
-                if (status === "OK") {
-                    if (results[0]) {
-                        callback(results[0].formatted_address);
-                    } else {
-                        callback("No address found");
-                    }
-                } else {
-                    callback("Geocoder failed due to: " + status);
-                }
-            });
-        }
+function debouncedReverseGeocode(latLng) {
+  clearTimeout(geocodeTimer);
+  geocodeTimer = setTimeout(() => {
+    geocoder.geocode({ location: latLng }, (results, status) => {
+      if (status === 'OK' && results[0]) {
+        currentAddress = results[0].formatted_address;
+        const el = document.getElementById('current-address-display');
+        if (el) el.textContent = currentAddress;
+      }
+    });
+  }, 600);
+}
 
-        function recordObservation() {
-            const formData = new FormData(document.getElementById('form'));
-            const lat = panorama.getPosition().lat();
-            const lng = panorama.getPosition().lng();
+// ================================================================
+// CONFIDENCE RATING
+// ================================================================
+function setConfidence(val) {
+  currentConfidence = val;
+  document.querySelectorAll('.conf-btn').forEach(btn => {
+    btn.classList.toggle('active', parseInt(btn.dataset.val) <= val);
+  });
+}
 
-            getStreetAddress(lat, lng, function(address) {
-                const now = new Date();
-                const localTimestamp = now.toLocaleString('en-US', { 
-                    year: 'numeric', 
-                    month: '2-digit', 
-                    day: '2-digit',
-                    hour: '2-digit', 
-                    minute: '2-digit', 
-                    second: '2-digit',
-                    hour12: false
-                });
+// ================================================================
+// GOOGLE SHEETS LOGGING
+// ================================================================
+// Silently POSTs each new observation to your Apps Script web app.
+// Fails gracefully — local CSV remains the observer's copy.
+function sendToSheet(obs) {
+  const url = window.SHEETS_WEBHOOK_URL;
+  if (!url || url === 'https://script.google.com/macros/s/AKfycbx41lxp65_OJcSts1TB4BvYbelIOeDz470ipOp_0h0f5I4I_mzRcBLjnYU-QPZ2CUy2/exec') return;
+  try {
+    // mode: 'no-cors' required for Apps Script — response unreadable but POST succeeds.
+    // Content-Type must be text/plain (simple header) to avoid a preflight OPTIONS request.
+    fetch(url, {
+      method:  'POST',
+      mode:    'no-cors',
+      headers: { 'Content-Type': 'text/plain' },
+      body:    JSON.stringify(obs),
+    }).catch(() => {}); // Fail silently
+  } catch (e) { /* silent */ }
+}
 
-                const observation = {
-                    timestamp: localTimestamp,
-                    group: formData.get('group'),
-                    feature: formData.get('feature'),
-                    featurechange: formData.get('featurechange'),
-                    estyear: formData.get('estyear'),
-                    explanation: formData.get('explanation'),
-                    lat: lat,
-                    lng: lng,
-                    heading: panorama.getPov().heading,
-                    pitch: panorama.getPov().pitch,
-                    imageDate: document.getElementById('currentImageryDate').value,
-                    backupDate: document.getElementById('backupImageryDate').value,
-                    streetAddress: address
-                    
-                };
+// ================================================================
+// RECORD OBSERVATION
+// ================================================================
+function recordObservation() {
+  // Validate required fields
+  let valid = true;
+  ['feature', 'featurechange'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el.value) { el.classList.add('error'); valid = false; }
+    else           { el.classList.remove('error'); }
+  });
+  if (!valid) {
+    showToast('Feature type and change type are required', 'error');
+    return;
+  }
 
-                observations.push(observation);
-                saveObservations();
-                updateObservationCount();
+  const pos = panorama.getPosition();
+  const pov = panorama.getPov();
 
-                // Clear form except for the group number
-                const groupNumber = document.getElementById('group').value;
-                document.getElementById('form').reset();
-                document.getElementById('group').value = groupNumber;
-                
-                // Re-populate the date fields
-                document.getElementById('currentImageryDate').value = window.panoDateMap.get(panorama.getPano()) || selectedDate;
-            });
-        }
+  const obs = {
+    timestamp:    new Date().toLocaleString(),
+    observer:     document.getElementById('observer').value.trim(),
+    group:        document.getElementById('group').value.trim(),
+    feature:      document.getElementById('feature').value,
+    featurechange:document.getElementById('featurechange').value,
+    estyear:      document.getElementById('estyear').value.trim(),
+    explanation:  document.getElementById('explanation').value.trim(),
+    confidence:   currentConfidence,
+    notes:        document.getElementById('notes').value.trim(),
+    lat:          pos ? pos.lat() : '',
+    lng:          pos ? pos.lng() : '',
+    heading:      Math.round(pov.heading),
+    pitch:        Math.round(pov.pitch),
+    imageDate:    document.getElementById('currentImageryDate').value,
+    backupDate:   document.getElementById('backupImageryDate').value.trim(),
+    streetAddress:currentAddress,
+  };
 
-        function downloadDataset() {
-            const csv = Papa.unparse(observations);
-            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement("a");
-            if (link.download !== undefined) {
-                const url = URL.createObjectURL(blob);
-                link.setAttribute("href", url);
-                link.setAttribute("download", "virtual_audit_dataset.csv");
-                link.style.visibility = 'hidden';
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-            }
-        }
+  if (editingIndex !== null) {
+    observations[editingIndex] = obs;
+    showToast('Observation updated ✓', 'success');
+  } else {
+    observations.push(obs);
+    sendToSheet(obs); // Log to master Google Sheet (new observations only)
+    showToast('Observation recorded ✓', 'success');
+  }
 
-        function clearAllData() {
-            if (confirm("Are you sure you want to delete all recorded observations? This action cannot be undone.")) {
-                localStorage.removeItem('virtualAuditObservations');
-                observations = [];
-                updateObservationCount();
-                alert("All data has been cleared.");
-            }
-        }
+  saveObservations();
+  resetForm();
+  renderObservationLog();
+  updateObservationCount();
+}
 
-        function saveObservations() {
-            localStorage.setItem('virtualAuditObservations', JSON.stringify(observations));
-        }
+// ================================================================
+// FORM HELPERS
+// ================================================================
+function resetForm() {
+  ['group','estyear','explanation','notes','backupImageryDate'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  ['feature','featurechange'].forEach(id => {
+    document.getElementById(id).value = '';
+    document.getElementById(id).classList.remove('error');
+  });
+  setConfidence(3);
+  editingIndex = null;
+  document.getElementById('edit-bar').classList.remove('visible');
+  const btn = document.getElementById('record-btn');
+  btn.className = 'btn btn-primary btn-block';
+  btn.innerHTML = 'Record <kbd>Ctrl+↵</kbd>';
+}
 
-        function loadObservations() {
-            const savedObservations = localStorage.getItem('virtualAuditObservations');
-            if (savedObservations) {
-                observations = JSON.parse(savedObservations);
-            } else {
-                observations = [];
-            }
-            updateObservationCount();
-        }
+function cancelEdit() {
+  resetForm();
+  showToast('Edit cancelled', 'info');
+}
 
-        function updateObservationCount() {
-            document.getElementById('observationCount').textContent = `Total Observations: ${observations.length}`;
-        }
+// ================================================================
+// OBSERVATION LOG
+// ================================================================
+function renderObservationLog() {
+  const log = document.getElementById('obs-log');
+  if (!observations.length) {
+    log.innerHTML = '<div class="empty-log">No observations yet</div>';
+    return;
+  }
+  log.innerHTML = observations.map((obs, i) => `
+    <div class="obs-item">
+      <div class="obs-item-top">
+        <span class="obs-feature">${esc(obs.feature)}</span>
+        <span class="obs-actions">
+          <button class="obs-btn" onclick="editObservation(${i})">Edit</button>
+          <button class="obs-btn del" onclick="deleteObservation(${i})" title="Delete">✕</button>
+        </span>
+      </div>
+      <div class="obs-change">${esc(obs.featurechange || '—')}</div>
+      <div class="obs-meta">
+        ${esc(obs.imageDate || '—')}${obs.estyear ? ' · est. ' + esc(obs.estyear) : ''} · conf. ${obs.confidence || '—'}/5${obs.observer ? ' · ' + esc(obs.observer) : ''}
+      </div>
+      <div class="obs-meta">${esc(obs.streetAddress || '—')}</div>
+    </div>
+  `).join('');
+}
 
-        (function() {
-            const script = document.createElement('script');
-            script.src = 'https://maps.googleapis.com/maps/api/js?key=AIzaSyBNVN2mixyttHxNeZjX63A96vEMtx0Nmio&libraries=drawing,geocoding&callback=initMap';
-            script.async = true;
-            script.defer = true;
-            document.head.appendChild(script);
-        })();
-    </script>
+function esc(str) {
+  return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function editObservation(i) {
+  const obs = observations[i];
+  editingIndex = i;
+
+  document.getElementById('observer').value           = obs.observer || '';
+  document.getElementById('group').value              = obs.group || '';
+  document.getElementById('feature').value            = obs.feature || '';
+  document.getElementById('featurechange').value      = obs.featurechange || '';
+  document.getElementById('estyear').value            = obs.estyear || '';
+  document.getElementById('explanation').value        = obs.explanation || '';
+  document.getElementById('notes').value              = obs.notes || '';
+  document.getElementById('currentImageryDate').value = obs.imageDate || '';
+  document.getElementById('backupImageryDate').value  = obs.backupDate || '';
+  setConfidence(obs.confidence || 3);
+
+  document.getElementById('edit-bar').classList.add('visible');
+  const btn = document.getElementById('record-btn');
+  btn.className = 'btn btn-primary btn-block editing';
+  btn.innerHTML = 'Update Observation <kbd>Ctrl+↵</kbd>';
+
+  // Scroll to form
+  document.querySelector('.sidebar-scroll').scrollTo({ top: 0, behavior: 'smooth' });
+  showToast('Editing — update fields and click Update', 'warning');
+}
+
+function deleteObservation(i) {
+  const label = observations[i].feature || 'observation';
+  if (confirm(`Delete "${label}"? This cannot be undone.`)) {
+    if (editingIndex === i) resetForm();
+    else if (editingIndex !== null && editingIndex > i) editingIndex--;
+    observations.splice(i, 1);
+    saveObservations();
+    renderObservationLog();
+    updateObservationCount();
+    showToast('Observation deleted', 'info');
+  }
+}
+
+// ================================================================
+// DOWNLOAD
+// ================================================================
+function downloadDataset() {
+  if (!observations.length) { showToast('No data to download', 'error'); return; }
+
+  const cols = [
+    'timestamp','observer','group','feature','featurechange',
+    'estyear','explanation','confidence','notes',
+    'lat','lng','heading','pitch','imageDate','backupDate','streetAddress'
+  ];
+  const csvRow = row => row.map(v => {
+    const s = String(v ?? '');
+    return /[,"\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  }).join(',');
+
+  const csv = [csvRow(cols), ...observations.map(o => csvRow(cols.map(c => o[c])))].join('\n');
+  const a   = document.createElement('a');
+  a.href     = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = `virtual-audit_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  showToast('CSV downloaded', 'success');
+}
+
+// ================================================================
+// CLEAR ALL
+// ================================================================
+function clearAllData() {
+  if (!observations.length) { showToast('Nothing to clear', 'info'); return; }
+  if (confirm(`Delete all ${observations.length} observation(s)? This cannot be undone.`)) {
+    observations = [];
+    saveObservations();
+    resetForm();
+    renderObservationLog();
+    updateObservationCount();
+    showToast('All data cleared', 'info');
+  }
+}
+
+// ================================================================
+// PERSISTENCE
+// ================================================================
+const STORAGE_KEY  = 'virtualAuditObs_v2';
+const OBSERVER_KEY = 'virtualAuditObserver';
+
+function saveObservations() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(observations));
+}
+
+function loadObservations() {
+  try {
+    // Try new key first, then legacy key used by original tool
+    const src = localStorage.getItem(STORAGE_KEY)
+             || localStorage.getItem('virtualAuditObservations');
+    if (src) observations = JSON.parse(src);
+  } catch { observations = []; }
+  renderObservationLog();
+  updateObservationCount();
+}
+
+function loadSavedObserver() {
+  const saved = localStorage.getItem(OBSERVER_KEY);
+  if (saved) document.getElementById('observer').value = saved;
+  document.getElementById('observer').addEventListener('blur', e => {
+    if (e.target.value.trim()) localStorage.setItem(OBSERVER_KEY, e.target.value.trim());
+  });
+}
+
+function updateObservationCount() {
+  const n = observations.length;
+  document.getElementById('obs-badge').textContent = n;
+  document.getElementById('obs-count').textContent = n;
+}
+
+// ================================================================
+// TOASTS
+// ================================================================
+function showToast(msg, type = 'info') {
+  const div = document.createElement('div');
+  div.className = `toast ${type}`;
+  div.textContent = msg;
+  document.getElementById('toasts').appendChild(div);
+  setTimeout(() => div.remove(), 2800);
+}
+
+// ================================================================
+// KEYBOARD SHORTCUTS
+// ================================================================
+document.addEventListener('keydown', e => {
+  // Ctrl/Cmd + Enter → Record / Update
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+    e.preventDefault();
+    recordObservation();
+  }
+  // Escape → Cancel edit
+  if (e.key === 'Escape' && editingIndex !== null) {
+    cancelEdit();
+  }
+});
+
+// ================================================================
+// BOOTSTRAP GOOGLE MAPS
+// ================================================================
+(function () {
+  const key = window.MAPS_API_KEY || 'AIzaSyBNVN2mixyttHxNeZjX63A96vEMtx0Nmio';
+  const s   = document.createElement('script');
+  s.src     = `https://maps.googleapis.com/maps/api/js?key=${key}&callback=initMap&v=weekly&loading=async`;
+  s.async   = true;
+  s.onerror = () => showToast('Failed to load Google Maps — check your API key', 'error');
+  document.head.appendChild(s);
+})();
+</script>
+
 </body>
 </html>

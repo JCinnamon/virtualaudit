@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -711,6 +710,15 @@ function initMap() {
 
   map.setStreetView(panorama);
 
+  // Intercept panorama.setPosition to block the Maps API's internal correction
+  // when map.setStreetView() is active — it calls setPosition after setPano,
+  // which overwrites historical imagery selection and snaps the view back.
+  const _origSetPosition = panorama.setPosition.bind(panorama);
+  panorama.setPosition = function(pos) {
+    if (isUpdatingFromDate) return; // block during date transitions
+    _origSetPosition(pos);
+  };
+
   streetViewService = new google.maps.StreetViewService();
   geocoder          = new google.maps.Geocoder();
 
@@ -960,11 +968,11 @@ function recordObservation() {
 
   if (editingIndex !== null) {
     observations[editingIndex] = obs;
-    showToast('Observation updated ?', 'success');
+    showToast('Observation updated ✓', 'success');
   } else {
     observations.push(obs);
     sendToSheet(obs); // Log to master Google Sheet (new observations only)
-    showToast('Observation recorded ?', 'success');
+    showToast('Observation recorded ✓', 'success');
   }
 
   saveObservations();

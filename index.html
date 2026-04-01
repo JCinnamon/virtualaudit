@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -723,6 +724,7 @@ function initMap() {
 
   // Keep mini-map centred and reverse geocode on move
   panorama.addListener('position_changed', () => {
+    if (isUpdatingFromDate) return; // don't move map during date transitions
     const pos = panorama.getPosition();
     if (pos) {
       map.setCenter(pos);
@@ -1010,7 +1012,7 @@ function renderObservationLog() {
         <span class="obs-feature">${esc(obs.feature)}</span>
         <span class="obs-actions">
           <button class="obs-btn" onclick="editObservation(${i})">Edit</button>
-          <button class="obs-btn del" onclick="deleteObservation(${i})" title="Delete">?</button>
+          <button class="obs-btn del" onclick="deleteObservation(${i})" title="Delete">✕</button>
         </span>
       </div>
       <div class="obs-change">${esc(obs.featurechange || '—')}</div>

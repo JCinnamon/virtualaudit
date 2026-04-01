@@ -1,0 +1,8 @@
+# Google Maps API key — keep out of version control
+# Copy config.js.example → config.js and add your real key there
+config.js
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+.vscode/

@@ -517,17 +517,17 @@
       <section class="sidebar-section">
         <div class="section-title">Location</div>
         <div class="search-row">
-          <input type="text" id="address-input" placeholder="Search address or place�">
+          <input type="text" id="address-input" placeholder="Search address or place…">
           <button class="btn btn-outline btn-sm" id="search-btn" onclick="searchLocation()">Go</button>
         </div>
-        <div id="current-address-display">�</div>
+        <div id="current-address-display">—</div>
       </section>
 
       <!-- Imagery Date -->
       <section class="sidebar-section">
         <div class="section-title">Imagery Date</div>
         <select id="imageDate" onchange="dateSelectChangeHandler()">
-          <option value="">Loading�</option>
+          <option value="">Loading…</option>
         </select>
         <div class="current-date-pill" id="current-date-pill"></div>
       </section>
@@ -549,7 +549,7 @@
         <div class="field-row">
           <div class="field">
             <label>Current Date</label>
-            <input type="text" id="currentImageryDate" readonly placeholder="�">
+            <input type="text" id="currentImageryDate" readonly placeholder="—">
           </div>
           <div class="field">
             <label>Backup Date</label>
@@ -560,7 +560,7 @@
         <div class="field">
           <label>Feature Type <span class="req">*</span></label>
           <select id="feature">
-            <option value="">� Select �</option>
+            <option value="">— Select —</option>
             <option value="Apartment/Condo">Apartment / Condo Building</option>
             <option value="Office Building">Office Building</option>
             <option value="House">House</option>
@@ -581,7 +581,7 @@
         <div class="field">
           <label>Change Type <span class="req">*</span></label>
           <select id="featurechange">
-            <option value="">� Select �</option>
+            <option value="">— Select —</option>
             <option value="Changed to new feature type">Changed to new feature type</option>
             <option value="Changed but same feature type">Changed but same feature type</option>
             <option value="Same feature, upgraded/renovated">Same feature, upgraded / renovated</option>
@@ -595,7 +595,7 @@
             <input type="number" id="estyear" placeholder="e.g. 2018" min="1900" max="2035">
           </div>
           <div class="field">
-            <label>Confidence (1�5)</label>
+            <label>Confidence (1–5)</label>
             <div class="conf-row">
               <button class="conf-btn" data-val="1" onclick="setConfidence(1)">1</button>
               <button class="conf-btn" data-val="2" onclick="setConfidence(2)">2</button>
@@ -608,16 +608,16 @@
 
         <div class="field">
           <label>Explanation of Change</label>
-          <textarea id="explanation" placeholder="Describe what changed�" rows="2"></textarea>
+          <textarea id="explanation" placeholder="Describe what changed…" rows="2"></textarea>
         </div>
 
         <div class="field">
           <label>Notes</label>
-          <textarea id="notes" placeholder="Additional observations�" rows="2"></textarea>
+          <textarea id="notes" placeholder="Additional observations…" rows="2"></textarea>
         </div>
 
         <button class="btn btn-primary btn-block" id="record-btn" onclick="recordObservation()">
-          Record <kbd>Ctrl+?</kbd>
+          Record <kbd>Ctrl+↵</kbd>
         </button>
       </section>
 
@@ -626,7 +626,7 @@
         <div class="section-title-row">
           <span class="section-title">Observations (<span id="obs-count">0</span>)</span>
           <div class="btn-group">
-            <button class="btn btn-outline btn-sm" onclick="downloadDataset()">? CSV</button>
+            <button class="btn btn-outline btn-sm" onclick="downloadDataset()">⬇ CSV</button>
             <button class="btn btn-danger btn-sm" onclick="clearAllData()">Clear</button>
           </div>
         </div>
@@ -639,13 +639,13 @@
 
     <div class="sidebar-footer">
       <a href="https://jcinnamon.github.io/">J Cinnamon</a>
-      &nbsp;�&nbsp; Virtual Street Audit &nbsp;�&nbsp; UBC Okanagan
+      &nbsp;·&nbsp; Virtual Street Audit &nbsp;·&nbsp; UBC Okanagan
     </div>
   </aside>
 
   <!-- ?? Map + Panorama ???????????????????????????????????????? -->
   <div id="map-area">
-    <div id="pano-loading">Loading Street View�</div>
+    <div id="pano-loading">Loading Street View…</div>
     <div id="pano"></div>
     <div id="map"></div>
   </div>
@@ -742,7 +742,10 @@ function initMap() {
 // ================================================================
 // DATES
 // ================================================================
+let _dateReqId = 0;
+
 function updateAvailableDates(location) {
+  const myId = ++_dateReqId; // invalidates any in-flight request
   const sel = document.getElementById('imageDate');
   sel.innerHTML = '<option value="">Loading dates…</option>';
   document.getElementById('current-date-pill').textContent = '';
@@ -761,6 +764,7 @@ function updateAvailableDates(location) {
   }
 
   function populate(items) {
+    if (myId !== _dateReqId) return; // stale callback — a newer request is running
     const valid = items
       .filter(i => i.pano && i.imageDate)
       .sort((a, b) => dateOrdinal(a.imageDate) - dateOrdinal(b.imageDate));
@@ -783,6 +787,7 @@ function updateAvailableDates(location) {
   streetViewService.getPanorama(
     { location, radius: 50, source: google.maps.StreetViewSource.OUTDOOR },
     (locData, locStatus) => {
+      if (myId !== _dateReqId) return; // stale
       if (locStatus !== google.maps.StreetViewStatus.OK) {
         sel.innerHTML = '<option value="">No Street View at this location</option>';
         return;
@@ -856,7 +861,7 @@ function searchLocation() {
   if (!address) return;
 
   const btn = document.getElementById('search-btn');
-  btn.textContent = '�';
+  btn.textContent = '⧗';
   btn.disabled = true;
 
   geocoder.geocode({ address }, (results, status) => {
@@ -902,12 +907,12 @@ function setConfidence(val) {
 // GOOGLE SHEETS LOGGING
 // ================================================================
 // Silently POSTs each new observation to your Apps Script web app.
-// Fails gracefully � local CSV remains the observer's copy.
+// Fails gracefully — local CSV remains the observer's copy.
 function sendToSheet(obs) {
   const url = window.SHEETS_WEBHOOK_URL;
   if (!url || url === 'https://script.google.com/macros/s/AKfycbx41lxp65_OJcSts1TB4BvYbelIOeDz470ipOp_0h0f5I4I_mzRcBLjnYU-QPZ2CUy2/exec') return;
   try {
-    // GET request with data as URL param � most reliable for Apps Script cross-origin.
+    // GET request with data as URL param — most reliable for Apps Script cross-origin.
     // Replace doPost with doGet in your Apps Script (see config.js.example).
     const params = new URLSearchParams({ data: JSON.stringify(obs) });
     fetch(`${url}?${params.toString()}`, { mode: 'no-cors' }).catch(() => {});
@@ -982,7 +987,7 @@ function resetForm() {
   document.getElementById('edit-bar').classList.remove('visible');
   const btn = document.getElementById('record-btn');
   btn.className = 'btn btn-primary btn-block';
-  btn.innerHTML = 'Record <kbd>Ctrl+?</kbd>';
+  btn.innerHTML = 'Record <kbd>Ctrl+↵</kbd>';
 }
 
 function cancelEdit() {
@@ -1008,11 +1013,11 @@ function renderObservationLog() {
           <button class="obs-btn del" onclick="deleteObservation(${i})" title="Delete">?</button>
         </span>
       </div>
-      <div class="obs-change">${esc(obs.featurechange || '�')}</div>
+      <div class="obs-change">${esc(obs.featurechange || '—')}</div>
       <div class="obs-meta">
-        ${esc(obs.imageDate || '�')}${obs.estyear ? ' � est. ' + esc(obs.estyear) : ''} � conf. ${obs.confidence || '�'}/5${obs.observer ? ' � ' + esc(obs.observer) : ''}
+        ${esc(obs.imageDate || '—')}${obs.estyear ? ' · est. ' + esc(obs.estyear) : ''} · conf. ${obs.confidence || '—'}/5${obs.observer ? ' · ' + esc(obs.observer) : ''}
       </div>
-      <div class="obs-meta">${esc(obs.streetAddress || '�')}</div>
+      <div class="obs-meta">${esc(obs.streetAddress || '—')}</div>
     </div>
   `).join('');
 }
@@ -1038,11 +1043,11 @@ function editObservation(i) {
   document.getElementById('edit-bar').classList.add('visible');
   const btn = document.getElementById('record-btn');
   btn.className = 'btn btn-primary btn-block editing';
-  btn.innerHTML = 'Update Observation <kbd>Ctrl+?</kbd>';
+  btn.innerHTML = 'Update Observation <kbd>Ctrl+↵</kbd>';
 
   // Scroll to form
   document.querySelector('.sidebar-scroll').scrollTo({ top: 0, behavior: 'smooth' });
-  showToast('Editing � update fields and click Update', 'warning');
+  showToast('Editing — update fields and click Update', 'warning');
 }
 
 function deleteObservation(i) {
@@ -1147,7 +1152,7 @@ function showToast(msg, type = 'info') {
 // KEYBOARD SHORTCUTS
 // ================================================================
 document.addEventListener('keydown', e => {
-  // Ctrl/Cmd + Enter ? Record / Update
+  // Ctrl/Cmd + Enter → Record / Update
   if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
     e.preventDefault();
     recordObservation();
@@ -1166,7 +1171,7 @@ document.addEventListener('keydown', e => {
   const s   = document.createElement('script');
   s.src     = `https://maps.googleapis.com/maps/api/js?key=${key}&callback=initMap&v=weekly&loading=async`;
   s.async   = true;
-  s.onerror = () => showToast('Failed to load Google Maps � check your API key', 'error');
+  s.onerror = () => showToast('Failed to load Google Maps — check your API key', 'error');
   document.head.appendChild(s);
 })();
 </script>

@@ -905,7 +905,7 @@ function setConfidence(val) {
 // Fails gracefully � local CSV remains the observer's copy.
 function sendToSheet(obs) {
   const url = window.SHEETS_WEBHOOK_URL;
-  if (!url || url === 'REPLACE_WITH_YOUR_SCRIPT_URL') return;
+  if (!url || url === 'https://script.google.com/macros/s/AKfycbx41lxp65_OJcSts1TB4BvYbelIOeDz470ipOp_0h0f5I4I_mzRcBLjnYU-QPZ2CUy2/exec') return;
   try {
     // GET request with data as URL param � most reliable for Apps Script cross-origin.
     // Replace doPost with doGet in your Apps Script (see config.js.example).

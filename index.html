@@ -676,9 +676,9 @@ let observations   = [];
 let editingIndex   = null;
 let currentConfidence = 3;
 let currentAddress = '';
-let isUpdatingFromDate   = false;
-let _posUpdateTimer      = null;
-let _lastDateUpdatePos   = null; // position at last updateAvailableDates call
+let isChangingDate       = false;  // true during intentional date selection (100ms)
+let isUpdatingPanorama   = false;  // true while position_changed debounce is active (500ms)
+let selectedDateLabel    = null;   // preserved date text across panorama navigations
 let geocodeTimer   = null;
 
 // ================================================================
@@ -712,14 +712,6 @@ function initMap() {
 
   map.setStreetView(panorama);
 
-  // Intercept panorama.setPosition to block the Maps API's internal correction
-  // when map.setStreetView() is active — it calls setPosition after setPano,
-  // which overwrites historical imagery selection and snaps the view back.
-  const _origSetPosition = panorama.setPosition.bind(panorama);
-  panorama.setPosition = function(pos) {
-    if (isUpdatingFromDate) return; // block during date transitions
-    _origSetPosition(pos);
-  };
 
   streetViewService = new google.maps.StreetViewService();
   geocoder          = new google.maps.Geocoder();
@@ -733,28 +725,24 @@ function initMap() {
   panorama.addListener('pano_changed', syncDateSelector);
 
   // Keep mini-map centred and reverse geocode on move
-  panorama.addListener('position_changed', () => {
-    if (isUpdatingFromDate) return; // skip entirely during date transitions
+  panorama.addListener('position_changed', function() {
+    if (isChangingDate || isUpdatingPanorama) return;
     const pos = panorama.getPosition();
     if (!pos) return;
     map.setCenter(pos);
     debouncedReverseGeocode(pos);
 
-    // Refresh dates when the user navigates significantly (pegman, walking).
-    // Distance gate (~30 m) prevents spurious calls from tiny historical-pano
-    // offsets; debounce waits for the user to settle before fetching.
-    // Crucially this increments _dateReqId, cancelling any stale async
-    // callbacks from a previous location that would otherwise call setPano().
-    const dlat = pos.lat() - (_lastDateUpdatePos ? _lastDateUpdatePos.lat() : pos.lat());
-    const dlng = pos.lng() - (_lastDateUpdatePos ? _lastDateUpdatePos.lng() : pos.lng());
-    const movedFar = !_lastDateUpdatePos || Math.sqrt(dlat*dlat + dlng*dlng) > 0.0003;
-    if (movedFar) {
-      clearTimeout(_posUpdateTimer);
-      _posUpdateTimer = setTimeout(() => updateAvailableDates(pos), 1500);
-    }
+    // Debounce: let the panorama settle, then refresh dates for the new position.
+    // This increments _dateReqId, which cancels any stale async callbacks from
+    // the previous location (preventing snap-back).
+    isUpdatingPanorama = true;
+    setTimeout(() => {
+      updateAvailableDates(panorama.getPosition());
+      isUpdatingPanorama = false;
+    }, 500);
   });
 
-  // Address input: Enter key triggers search
+    // Address input: Enter key triggers search
   document.getElementById('address-input')
     .addEventListener('keydown', e => { if (e.key === 'Enter') searchLocation(); });
 
@@ -800,12 +788,22 @@ function updateAvailableDates(location) {
     sel.innerHTML = valid
       .map(i => `<option value="${i.pano}">${fmtDate(i.imageDate)}</option>`)
       .join('');
-    sel.selectedIndex = valid.length - 1;
-    const latest = valid[valid.length - 1];
-    isUpdatingFromDate = true;
-    panorama.setPano(latest.pano);
-    setCurrentDateDisplay(fmtDate(latest.imageDate));
-    setTimeout(() => { isUpdatingFromDate = false; }, 900);
+    // Re-select previously chosen date if available, otherwise latest
+    let bestIdx = valid.length - 1;
+    if (selectedDateLabel) {
+      for (let i = 0; i < sel.options.length; i++) {
+        if (sel.options[i].text === selectedDateLabel) { bestIdx = i; break; }
+      }
+    }
+    sel.selectedIndex = bestIdx;
+    const chosen = valid[bestIdx];
+    setCurrentDateDisplay(fmtDate(chosen.imageDate));
+    // Only navigate if pano is actually different (avoids feedback loops)
+    if (panorama.getPano() !== chosen.pano) {
+      isChangingDate = true;
+      panorama.setPano(chosen.pano);
+      setTimeout(() => { isChangingDate = false; }, 100);
+    }
   }
 
   // Step 1: location → current pano ID
@@ -853,14 +851,17 @@ function updateAvailableDates(location) {
 function dateSelectChangeHandler() {
   const sel = document.getElementById('imageDate');
   if (!sel.value) return;
-  isUpdatingFromDate = true;
-  panorama.setPano(sel.value);
-  setCurrentDateDisplay(sel.options[sel.selectedIndex].text);
-  setTimeout(() => { isUpdatingFromDate = false; }, 900);
+  selectedDateLabel = sel.options[sel.selectedIndex].text;
+  if (sel.value !== panorama.getPano()) {
+    isChangingDate = true;
+    panorama.setPano(sel.value);
+    setCurrentDateDisplay(selectedDateLabel);
+    setTimeout(() => { isChangingDate = false; }, 100);
+  }
 }
 
 function syncDateSelector() {
-  if (isUpdatingFromDate) return;
+  if (isChangingDate) return;
   const panoId = panorama.getPano();
   const sel    = document.getElementById('imageDate');
   for (let i = 0; i < sel.options.length; i++) {

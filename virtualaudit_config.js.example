@@ -1,0 +1,68 @@
+// Virtual Street Audit Tool — Local Configuration
+// Copy this file to config.js (which is in .gitignore — never committed to GitHub)
+
+// ── Google Maps API Key ───────────────────────────────────────────────────────
+// Replace with your actual key.
+// In Google Cloud Console: restrict this key to https://jcinnamon.github.io
+// (APIs: Maps JavaScript API + Street View Static API)
+window.MAPS_API_KEY = 'YOUR_GOOGLE_MAPS_API_KEY_HERE';
+
+
+// ── Google Sheets Master Log (Admin Only) ─────────────────────────────────────
+// Every new observation is silently sent to this URL, which appends a row
+// to your private Google Sheet. Only you have access to the Sheet.
+//
+// SETUP (one-time, ~5 minutes):
+//
+// 1. Create a new Google Sheet at sheets.google.com
+//    Name the first sheet tab "Observations"
+//
+// 2. Open Extensions → Apps Script
+//    Replace all code with the script below and click Save (💾)
+//
+// 3. Click Deploy → New deployment
+//    Type: Web app
+//    Execute as: Me
+//    Who has access: Anyone
+//    → Click Deploy and copy the URL
+//
+// 4. Paste the URL below in place of REPLACE_WITH_YOUR_SCRIPT_URL
+//
+// ── Apps Script code to paste ────────────────────────────────────────────────
+//
+//  function doPost(e) {
+//    try {
+//      const sheet = SpreadsheetApp
+//        .getActiveSpreadsheet()
+//        .getSheetByName('Observations');
+//
+//      const data = JSON.parse(e.postData.contents);
+//
+//      // Write header row if the sheet is empty
+//      if (sheet.getLastRow() === 0) {
+//        sheet.appendRow([
+//          'timestamp','observer','group','feature','featurechange',
+//          'estyear','explanation','confidence','notes',
+//          'lat','lng','heading','pitch','imageDate','backupDate','streetAddress'
+//        ]);
+//      }
+//
+//      sheet.appendRow([
+//        data.timestamp, data.observer,  data.group,        data.feature,
+//        data.featurechange, data.estyear, data.explanation, data.confidence,
+//        data.notes,     data.lat,       data.lng,          data.heading,
+//        data.pitch,     data.imageDate, data.backupDate,   data.streetAddress
+//      ]);
+//
+//      return ContentService
+//        .createTextOutput(JSON.stringify({ status: 'ok' }))
+//        .setMimeType(ContentService.MimeType.JSON);
+//    } catch (err) {
+//      return ContentService
+//        .createTextOutput(JSON.stringify({ status: 'error', message: err.toString() }))
+//        .setMimeType(ContentService.MimeType.JSON);
+//    }
+//  }
+//
+// ─────────────────────────────────────────────────────────────────────────────
+window.SHEETS_WEBHOOK_URL = 'REPLACE_WITH_YOUR_SCRIPT_URL';

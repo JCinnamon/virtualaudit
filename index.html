@@ -657,16 +657,13 @@
 
 <script>
 // ================================================================
-// CONFIG
+// CONFIG — paste your real URLs here before deploying to GitHub
 // ================================================================
-// Maps API key: loaded from config.js (see config.js.example).
-//   For deployment: replace REPLACE_WITH_YOUR_KEY below.
-//   For local dev:  create config.js ? window.MAPS_API_KEY = 'your-key';
-//   In Google Cloud Console, restrict this key to: https://jcinnamon.github.io
-//
-// Sheets webhook: set window.SHEETS_WEBHOOK_URL in config.js to your
-//   Google Apps Script web app URL (see setup instructions in config.js.example).
-//   Every new observation is silently posted to your Google Sheet.
+// Google Maps API key (restrict to https://jcinnamon.github.io in Cloud Console)
+window.MAPS_API_KEY = 'PASTE_YOUR_MAPS_API_KEY_HERE';
+
+// Google Sheets logging — Apps Script web app URL (the /exec one from Deploy → Manage deployments)
+window.SHEETS_WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbx41lxp65_OJcSts1TB4BvYbelIOeDz470ipOp_0h0f5I4I_mzRcBLjnYU-QPZ2CUy2/exec';
 
 // ================================================================
 // STATE
@@ -954,17 +951,35 @@ function setConfidence(val) {
 // ================================================================
 // GOOGLE SHEETS LOGGING
 // ================================================================
-// Silently POSTs each new observation to your Apps Script web app.
-// Fails gracefully — local CSV remains the observer's copy.
+// Sends each new observation to your Apps Script web app.
+// Uses GET with JSON in a URL param — matches doGet(e) { e.parameter.data }.
+// Falls back gracefully — local CSV remains the observer's copy.
 function sendToSheet(obs) {
   const url = window.SHEETS_WEBHOOK_URL;
-  if (!url || url === 'https://script.google.com/macros/s/AKfycbx41lxp65_OJcSts1TB4BvYbelIOeDz470ipOp_0h0f5I4I_mzRcBLjnYU-QPZ2CUy2/exec') return;
-  try {
-    // GET request with data as URL param — most reliable for Apps Script cross-origin.
-    // Replace doPost with doGet in your Apps Script (see config.js.example).
-    const params = new URLSearchParams({ data: JSON.stringify(obs) });
-    fetch(`${url}?${params.toString()}`, { mode: 'no-cors' }).catch(() => {});
-  } catch (e) { /* silent */ }
+  if (!url || url.includes('PASTE_YOUR')) {
+    console.warn('[Sheets] SHEETS_WEBHOOK_URL not configured — skipping upload.');
+    return;
+  }
+  const payload = JSON.stringify(obs);
+  const fullUrl = `${url}?data=${encodeURIComponent(payload)}`;
+  console.log('[Sheets] Sending observation to:', url);
+
+  // Try with cors first (Apps Script supports it when deployed as "Anyone").
+  // This lets us see errors. Fall back to no-cors if blocked.
+  fetch(fullUrl, { method: 'GET', redirect: 'follow' })
+    .then(resp => {
+      if (resp.ok || resp.type === 'opaque') {
+        console.log('[Sheets] Observation sent successfully.');
+      } else {
+        console.warn('[Sheets] Server responded with status:', resp.status);
+      }
+      return resp.text().catch(() => '');
+    })
+    .then(body => { if (body) console.log('[Sheets] Response:', body); })
+    .catch(err => {
+      console.warn('[Sheets] CORS fetch failed, retrying with no-cors:', err.message);
+      fetch(fullUrl, { mode: 'no-cors' }).catch(() => {});
+    });
 }
 
 // ================================================================

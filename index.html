@@ -3,62 +3,59 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Urban Change Observer - A Virtual Street Audit Tool</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <title>Virtual Street Audit</title>
 
-<meta name="description" content="Browser-based tool for conducting systematic visual audits of urban change at street-level.">
-<meta property="og:title" content="Urban Change Observer — A Virtual Street Audit Tool">
-<meta property="og:description" content="Conduct systematic audits of street view imagery for urban change research.">
-<meta property="og:url" content="https://www.jonathancinnamon.com/urban-change-observer/">
-<meta property="og:type" content="website">
-<link rel="canonical" href="https://www.jonathancinnamon.com/urban-change-observer/">
-  <script data-goatcounter="https://jcinnamon.goatcounter.com/count"
-        async src="//gc.zgo.at/count.js"></script>
+  <!-- Local dev: copy config.js.example → config.js and fill in your keys.
+       GitHub Pages deployment: hardcode MAPS_API_KEY and SHEETS_WEBHOOK_URL directly below.
+
+       NOTE: This version logs each audit module to its own tab in your Google Sheet.
+       You must update your Apps Script — see virtualaudit_config_2026-06-11.js.example
+       for the new doGet() code (it creates tabs and headers automatically). -->
+  <script>
+    window.MAPS_API_KEY       = 'AIzaSyBNVN2mixyttHxNeZjX63A96vEMtx0Nmio';
+    window.SHEETS_WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbySEzVZDAFZwsRejLIk3cir6g1yApaKqYv8n-XWMHQITq-R0F2sImDuZjLOaGJaFYTI/exec';
+  </script>
+  <script src="config.js" onerror="void 0"></script>
+
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
   <style>
-    /* ?? Design System ????????????????????????????????????????? */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
     :root {
       --primary:       #2c5f7a;
-      --primary-dark:  #1e4358;
+      --primary-dark:  #1e4258;
       --accent:        #1a9080;
       --accent-hover:  #168070;
       --accent-light:  #e6f4f1;
       --border:        #dde8ed;
-      --bg-sidebar:    #f7f9fb;
-      --bg-white:      #ffffff;
-      --text:          #1a2332;
-      --text-muted:    #6b7a8d;
+      --text:          #1a2b35;
+      --text-muted:    #5a7a8a;
+      --bg:            #f5f8fa;
+      --white:         #ffffff;
       --danger:        #c0392b;
       --warning:       #d35400;
-      --success:       #1a9080;
-      --radius:        5px;
-      --font:          'Inter', system-ui, -apple-system, sans-serif;
     }
-
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     html, body {
       height: 100%;
-      overflow: hidden;
-      font-family: var(--font);
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
       color: var(--text);
-      font-size: 14px;
-      line-height: 1.4;
+      background: var(--bg);
+      overflow: hidden;
     }
 
-    /* ?? App Layout ???????????????????????????????????????????? */
-    #app {
-      display: flex;
-      height: 100vh;
-    }
+    #app { display: flex; height: 100vh; }
 
-    /* ?? Sidebar ??????????????????????????????????????????????? */
+    /* ── Sidebar ─────────────────────────────────────────────── */
     #sidebar {
-      width: 316px;
-      flex-shrink: 0;
+      width: 336px;
+      min-width: 336px;
+      background: var(--white);
+      border-right: 1px solid var(--border);
       display: flex;
       flex-direction: column;
-      background: var(--bg-sidebar);
-      border-right: 1px solid var(--border);
       overflow: hidden;
       z-index: 10;
     }
@@ -66,431 +63,474 @@
     .sidebar-header {
       background: var(--primary);
       color: white;
-      padding: 0.8rem 1.1rem;
+      padding: 0.7rem 1rem;
+      flex-shrink: 0;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      flex-shrink: 0;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.15);
     }
-
-    .sidebar-header h1 {
-      font-size: 0.9375rem;
-      font-weight: 600;
-      letter-spacing: -0.01em;
-    }
-
+    .sidebar-header h1 { font-size: 0.95rem; font-weight: 600; letter-spacing: 0.01em; }
     .obs-badge {
       background: var(--accent);
       color: white;
-      font-size: 0.6875rem;
+      font-size: 0.69rem;
       font-weight: 700;
       padding: 2px 9px;
       border-radius: 999px;
       min-width: 24px;
       text-align: center;
-      transition: background 0.2s;
     }
 
-    .sidebar-scroll {
+    .sidebar-body {
       flex: 1;
       overflow-y: auto;
-      overflow-x: hidden;
+      padding: 0.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
       scrollbar-width: thin;
-      scrollbar-color: var(--border) transparent;
+      scrollbar-color: #b8cdd6 transparent;
     }
+    .sidebar-body::-webkit-scrollbar { width: 6px; }
+    .sidebar-body::-webkit-scrollbar-track { background: transparent; }
+    .sidebar-body::-webkit-scrollbar-thumb { background: #b8cdd6; border-radius: 3px; }
 
-    .sidebar-section {
-      padding: 0.8rem 1.1rem;
-      border-bottom: 1px solid var(--border);
-    }
-
-    .section-title {
-      font-size: 0.65rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: var(--text-muted);
-      margin-bottom: 0.575rem;
-    }
-
-    .section-title-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 0.575rem;
-    }
-
-    .section-title-row .section-title { margin-bottom: 0; }
-
-    /* ?? Location Search ??????????????????????????????????????? */
-    .search-row {
-      display: flex;
-      gap: 0.35rem;
-      margin-bottom: 0.3rem;
-    }
-
-    .search-row input { flex: 1; }
-
-    #current-address-display {
-      font-size: 0.6875rem;
-      color: var(--text-muted);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      min-height: 0.95rem;
-      padding-top: 1px;
-    }
-
-    /* ?? Date Selector ????????????????????????????????????????? */
-    #imageDate { margin-bottom: 0.3rem; }
-
-    .current-date-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      font-size: 0.6875rem;
-      color: var(--accent);
-      font-weight: 600;
-      min-height: 0.95rem;
-    }
-
-    /* ?? Form ?????????????????????????????????????????????????? */
-    .field {
-      margin-bottom: 0.45rem;
-    }
-
-    .field label {
-      display: block;
+    .sidebar-footer {
+      background: var(--primary-dark);
+      color: rgba(255,255,255,0.5);
+      text-align: center;
       font-size: 0.7rem;
+      padding: 0.4rem 1rem;
+      flex-shrink: 0;
+    }
+    .sidebar-footer a { color: rgba(255,255,255,0.75); text-decoration: none; }
+    .sidebar-footer a:hover { color: #fff; }
+
+    /* ── Sections ─────────────────────────────────────────────── */
+    .section {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    .section-title {
+      background: var(--primary);
+      color: white;
+      font-size: 0.66rem;
+      font-weight: 600;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      padding: 0.28rem 0.65rem;
+    }
+    .section-body {
+      padding: 0.45rem 0.6rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    /* ── Form controls ────────────────────────────────────────── */
+    label {
+      font-size: 0.68rem;
       font-weight: 500;
       color: var(--text-muted);
-      margin-bottom: 0.175rem;
+      display: block;
+      margin-bottom: 0.1rem;
     }
+    label .req { color: var(--danger); margin-left: 2px; }
+    .field-help { font-size: 0.63rem; color: var(--text-muted); opacity: 0.85; margin-top: 0.08rem; }
 
-    .field label .req {
-      color: var(--danger);
-      margin-left: 2px;
-      font-size: 0.65rem;
-    }
-
-    input[type="text"],
-    input[type="number"],
-    select,
-    textarea {
+    input[type="text"], input[type="number"], select, textarea {
       width: 100%;
-      padding: 0.32rem 0.55rem;
+      padding: 0.3rem 0.5rem;
       border: 1px solid var(--border);
-      border-radius: var(--radius);
-      font-family: var(--font);
+      border-radius: 4px;
+      font-family: inherit;
       font-size: 0.8rem;
       color: var(--text);
-      background: var(--bg-white);
-      transition: border-color 0.14s, box-shadow 0.14s;
-      -webkit-appearance: none;
-      appearance: none;
+      background: var(--white);
+      transition: border-color 0.15s, box-shadow 0.15s;
     }
-
-    select {
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236b7a8d' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
-      background-repeat: no-repeat;
-      background-position: right 0.55rem center;
-      padding-right: 1.75rem;
-    }
-
     input:focus, select:focus, textarea:focus {
       outline: none;
       border-color: var(--accent);
-      box-shadow: 0 0 0 3px rgba(26, 144, 128, 0.12);
+      box-shadow: 0 0 0 3px rgba(26,144,128,0.12);
     }
-
-    input.error, select.error {
+    input.error, select.error, textarea.error {
       border-color: var(--danger) !important;
-      box-shadow: 0 0 0 3px rgba(192, 57, 43, 0.1) !important;
+      box-shadow: 0 0 0 3px rgba(192,57,43,0.1) !important;
     }
+    textarea { resize: vertical; min-height: 38px; }
+    input[type="text"]:read-only { background: #f0f4f7; color: var(--text-muted); cursor: default; }
 
-    textarea {
-      resize: vertical;
-      min-height: 50px;
-      line-height: 1.45;
-    }
+    .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem; }
 
-    .field-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 0.45rem;
-    }
-
-    input[type="text"]:read-only {
-      background: #f0f4f7;
-      color: var(--text-muted);
-      cursor: default;
-    }
-
-    /* ?? Confidence Rating ????????????????????????????????????? */
-    .conf-row {
-      display: flex;
-      gap: 3px;
-    }
-
-    .conf-btn {
-      flex: 1;
-      height: 26px;
+    /* ── Collapsible form groups ──────────────────────────────── */
+    .group {
       border: 1px solid var(--border);
-      border-radius: var(--radius);
-      background: white;
-      font-size: 0.7rem;
-      font-family: var(--font);
-      font-weight: 500;
-      cursor: pointer;
-      color: var(--text-muted);
-      transition: all 0.12s;
-      line-height: 1;
+      border-radius: 5px;
+      background: var(--white);
+      overflow: hidden;
     }
-
-    .conf-btn.active {
-      background: var(--accent);
-      border-color: var(--accent);
-      color: white;
+    .group-header {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      border: none;
+      background: transparent;
+      font-family: inherit;
+      font-size: 0.66rem;
       font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--primary);
+      padding: 0.34rem 0.55rem;
+      cursor: pointer;
+      text-align: left;
+      transition: background 0.15s;
+    }
+    .group-header:hover { background: var(--accent-light); }
+    .group-header .caret { color: var(--accent); font-size: 0.7rem; width: 0.7rem; }
+    .group-header .group-hint {
+      margin-left: auto;
+      font-weight: 400;
+      text-transform: none;
+      letter-spacing: 0;
+      color: var(--text-muted);
+      font-size: 0.62rem;
+    }
+    .group-content {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      padding: 0.45rem 0.55rem;
+      border-top: 1px solid var(--border);
     }
 
-    .conf-btn:hover:not(.active) {
-      border-color: var(--accent);
-      color: var(--accent);
-      background: var(--accent-light);
+    .subheading {
+      font-size: 0.66rem;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--primary);
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0.15rem;
+      margin-top: 0.3rem;
     }
+    .subheading:first-child { margin-top: 0; }
 
-    /* ?? Buttons ??????????????????????????????????????????????? */
+    /* ── Buttons ──────────────────────────────────────────────── */
     .btn {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      gap: 0.35rem;
-      padding: 0.38rem 0.8rem;
-      border-radius: var(--radius);
-      font-family: var(--font);
+      gap: 0.3rem;
+      padding: 0.36rem 0.7rem;
+      border: 1px solid transparent;
+      border-radius: 4px;
+      font-family: inherit;
       font-size: 0.8rem;
       font-weight: 500;
       cursor: pointer;
-      border: 1px solid transparent;
-      transition: all 0.14s;
+      transition: background 0.15s, opacity 0.15s;
       white-space: nowrap;
-      line-height: 1;
+      line-height: 1.2;
     }
-
-    .btn-block { width: 100%; }
-
-    .btn-primary {
-      background: var(--accent);
-      color: white;
-      border-color: var(--accent);
-    }
-    .btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
-
-    .btn-primary.editing {
-      background: var(--warning);
-      border-color: var(--warning);
-    }
-    .btn-primary.editing:hover { background: #b34500; border-color: #b34500; }
-
-    .btn-outline {
-      background: white;
-      color: var(--text);
-      border-color: var(--border);
-    }
-    .btn-outline:hover { background: var(--accent-light); border-color: #b3d8d4; color: var(--accent); }
-
-    .btn-danger {
-      background: white;
-      color: var(--danger);
-      border-color: #e0c0bd;
-    }
-    .btn-danger:hover { background: #fdf0ef; border-color: var(--danger); }
-
-    .btn-sm { padding: 0.2rem 0.55rem; font-size: 0.6875rem; }
-
+    .btn:disabled { opacity: 0.5; cursor: default; }
+    .btn-primary  { background: var(--accent); color: white; border-color: var(--accent); }
+    .btn-primary:hover:not(:disabled)  { background: var(--accent-hover); }
+    .btn-primary.editing { background: var(--warning); border-color: var(--warning); }
+    .btn-primary.editing:hover:not(:disabled) { background: #b34500; }
+    .btn-secondary { background: var(--primary); color: white; border-color: var(--primary); }
+    .btn-secondary:hover:not(:disabled) { background: var(--primary-dark); }
+    .btn-outline  { background: var(--white); color: var(--primary); border-color: var(--border); }
+    .btn-outline:hover:not(:disabled)  { background: var(--accent-light); }
+    .btn-danger   { background: var(--white); color: var(--danger); border-color: #e8c5c0; font-size: 0.72rem; padding: 0.22rem 0.45rem; }
+    .btn-danger:hover:not(:disabled)   { background: #fdf0ee; }
+    .btn-full { width: 100%; }
+    .btn-sm { font-size: 0.72rem; padding: 0.24rem 0.5rem; }
     .btn kbd {
-      font-family: var(--font);
+      font-family: inherit;
       font-size: 0.6rem;
       background: rgba(255,255,255,0.22);
       padding: 1px 4px;
       border-radius: 3px;
-      letter-spacing: 0;
       font-weight: 400;
     }
 
-    .btn-group {
-      display: flex;
-      gap: 0.35rem;
-    }
-
-    /* ?? Edit Bar ?????????????????????????????????????????????? */
+    /* ── Edit bar ─────────────────────────────────────────────── */
     #edit-bar {
       display: none;
       align-items: center;
       justify-content: space-between;
       background: #fff4e6;
       border: 1px solid #fdd5a0;
-      border-radius: var(--radius);
-      padding: 0.35rem 0.65rem;
-      font-size: 0.725rem;
+      border-radius: 4px;
+      padding: 0.3rem 0.6rem;
+      font-size: 0.72rem;
       color: var(--warning);
       font-weight: 500;
-      margin-bottom: 0.5rem;
     }
     #edit-bar.visible { display: flex; }
 
-    /* ?? Observation Log ??????????????????????????????????????? */
-    .obs-item {
-      padding: 0.475rem 0;
-      border-bottom: 1px solid var(--border);
-    }
-    .obs-item:last-child { border-bottom: none; }
-
-    .obs-item-top {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 0.25rem;
-      margin-bottom: 1px;
+    /* ── Search ───────────────────────────────────────────────── */
+    #search-row { display: flex; gap: 0.35rem; }
+    #address-input { flex: 1; }
+    #current-address-display {
+      display: none;
+      font-size: 0.68rem;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
-    .obs-feature {
-      font-size: 0.775rem;
-      font-weight: 600;
-      color: var(--text);
+    /* ── Module bar ───────────────────────────────────────────── */
+    .module-desc { font-size: 0.66rem; color: var(--text-muted); line-height: 1.3; }
+    .module-row { display: flex; gap: 0.35rem; }
+    .module-row select { flex: 1; }
+
+    /* ── Scale buttons (likert / bipolar / confidence) ───────── */
+    .scale-row { display: flex; gap: 0.3rem; }
+    .scale-btn {
       flex: 1;
-      min-width: 0;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .obs-change {
-      font-size: 0.7rem;
-      color: var(--text-muted);
-      margin-bottom: 1px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .obs-meta {
-      font-size: 0.67rem;
-      color: var(--text-muted);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .obs-actions {
-      display: flex;
-      gap: 3px;
-      flex-shrink: 0;
-    }
-
-    .obs-btn {
-      padding: 2px 7px;
-      border-radius: 3px;
-      font-size: 0.625rem;
-      font-family: var(--font);
+      padding: 0.24rem 0;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      background: var(--white);
+      font-family: inherit;
+      font-size: 0.75rem;
       font-weight: 500;
       cursor: pointer;
-      border: 1px solid var(--border);
-      background: white;
-      color: var(--text-muted);
-      transition: all 0.12s;
-    }
-    .obs-btn:hover { background: var(--accent-light); color: var(--accent); border-color: #b3d8d4; }
-    .obs-btn.del:hover { background: #fdf0ef; color: var(--danger); border-color: #e0c0bd; }
-
-    .empty-log {
       text-align: center;
-      padding: 1.25rem 0;
       color: var(--text-muted);
-      font-size: 0.75rem;
+      transition: all 0.15s;
+    }
+    .scale-btn.active { background: var(--accent); border-color: var(--accent); color: white; font-weight: 600; }
+    .scale-btn:hover:not(.active) { background: var(--accent-light); border-color: var(--accent); color: var(--accent); }
+    .bipolar-ends {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.62rem;
+      color: var(--text-muted);
+      margin-top: 0.08rem;
     }
 
-    /* ?? Map Area ?????????????????????????????????????????????? */
-    #map-area {
+    /* ── Slider ───────────────────────────────────────────────── */
+    .slider-row { display: flex; align-items: center; gap: 0.5rem; }
+    .slider-row input[type="range"] { flex: 1; accent-color: var(--accent); }
+    .slider-val {
+      min-width: 42px;
+      text-align: center;
+      font-weight: 600;
+      font-size: 0.78rem;
+      color: var(--accent);
+      background: var(--accent-light);
+      border-radius: 4px;
+      padding: 0.12rem 0.2rem;
+    }
+
+    /* ── Chips (tags / checkboxes) ────────────────────────────── */
+    .chips { display: flex; flex-wrap: wrap; gap: 0.25rem; }
+    .chip {
+      border: 1px solid var(--border);
+      border-radius: 11px;
+      background: var(--white);
+      color: var(--text-muted);
+      font-family: inherit;
+      font-size: 0.69rem;
+      padding: 0.16rem 0.5rem;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .chip.active { background: var(--accent); border-color: var(--accent); color: white; }
+    .chip:hover:not(.active) { background: var(--accent-light); border-color: var(--accent); }
+
+    /* ── Radio rows ───────────────────────────────────────────── */
+    .radio-row { display: flex; flex-direction: column; gap: 0.14rem; }
+    .radio-row .radio-opt {
+      display: flex; align-items: center; gap: 0.4rem;
+      font-size: 0.75rem; color: var(--text); cursor: pointer;
+      font-weight: 400; margin: 0;
+    }
+    .radio-row input[type="radio"] { width: auto; accent-color: var(--accent); }
+
+    /* ── GVI panel ────────────────────────────────────────────── */
+    .gvi-panel {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      padding: 0.45rem 0.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+    .gvi-buttons { display: flex; gap: 0.3rem; }
+    .gvi-buttons .btn { flex: 1; }
+    .gvi-result {
+      font-size: 0.78rem;
+      display: none;
+      background: var(--accent-light);
+      border-radius: 4px;
+      padding: 0.3rem 0.5rem;
+      color: var(--text);
+    }
+    .gvi-result strong { color: var(--accent); font-size: 0.95rem; }
+    .gvi-status { font-size: 0.67rem; color: var(--text-muted); display: none; }
+    .ml-toggle { display: flex; align-items: center; gap: 0.4rem; font-size: 0.7rem; color: var(--text-muted); cursor: pointer; font-weight: 400; margin: 0; }
+    .ml-toggle input { width: auto; accent-color: var(--accent); }
+
+    /* ── Tabs ─────────────────────────────────────────────────── */
+    .tab-bar { display: flex; border-bottom: 1px solid var(--border); }
+    .tab-btn {
       flex: 1;
-      position: relative;
-      background: #1a1a2e;
-      overflow: hidden;
+      padding: 0.4rem;
+      border: none;
+      background: var(--bg);
+      font-family: inherit;
+      font-size: 0.76rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.15s;
     }
+    .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); background: var(--white); }
+    .tab-btn:hover:not(.active) { background: var(--accent-light); }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: flex; flex-direction: column; gap: 0.35rem; }
 
-    #pano {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
+    /* ── Observations list ────────────────────────────────────── */
+    .obs-controls { display: flex; gap: 0.3rem; }
+    .obs-controls .btn { flex: 1; }
+    .obs-list { display: flex; flex-direction: column; gap: 0.35rem; }
+    .obs-item {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      padding: 0.45rem 0.55rem;
+      cursor: default;
+      transition: border-color 0.15s;
     }
-
-    #map {
-      position: absolute;
-      bottom: 16px;
-      right: 16px;
-      width: 220px;
-      height: 165px;
-      border-radius: 8px;
-      border: 2px solid rgba(255, 255, 255, 0.9);
-      box-shadow: 0 4px 18px rgba(0, 0, 0, 0.38);
-      z-index: 5;
-      overflow: hidden;
+    .obs-item:hover { border-color: var(--accent); }
+    .obs-module {
+      display: inline-block;
+      background: var(--primary);
+      color: white;
+      font-size: 0.6rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      border-radius: 3px;
+      padding: 0.06rem 0.35rem;
+      margin-bottom: 0.18rem;
     }
+    .obs-feature  { font-weight: 600; font-size: 0.8rem; }
+    .obs-change   { font-size: 0.74rem; color: var(--text-muted); margin-top: 0.06rem; }
+    .obs-meta     { font-size: 0.66rem; color: var(--text-muted); margin-top: 0.1rem; }
+    .obs-actions  { display: flex; gap: 0.3rem; justify-content: flex-end; margin-top: 0.3rem; }
+    .obs-empty    { text-align: center; color: var(--text-muted); font-size: 0.78rem; padding: 0.9rem 0; }
 
-    /* ?? Toast Notifications ??????????????????????????????????? */
+    /* ── Toasts ───────────────────────────────────────────────── */
     #toasts {
       position: fixed;
       bottom: 20px;
-      left: 332px;
+      left: 352px;
       z-index: 9999;
       display: flex;
       flex-direction: column;
       gap: 6px;
       pointer-events: none;
     }
-
     .toast {
       padding: 9px 16px;
-      border-radius: var(--radius);
+      border-radius: 4px;
       font-size: 0.8rem;
       font-weight: 500;
       color: white;
-      box-shadow: 0 4px 18px rgba(0, 0, 0, 0.2);
+      box-shadow: 0 4px 18px rgba(0,0,0,0.2);
       animation: toastIn 0.18s ease;
-      max-width: 300px;
+      max-width: 320px;
     }
-
     .toast.success { background: var(--accent); }
     .toast.error   { background: var(--danger); }
     .toast.info    { background: var(--primary); }
     .toast.warning { background: var(--warning); }
-
     @keyframes toastIn {
       from { opacity: 0; transform: translateY(6px); }
       to   { opacity: 1; transform: translateY(0); }
     }
 
-    /* ?? Sidebar Footer ??????????????????????????????????????? */
-    .sidebar-footer {
-      background: var(--primary-dark);
-      color: rgba(255,255,255,0.5);
-      text-align: center;
-      font-size: 0.725rem;
-      padding: 0.5rem 1rem;
-      flex-shrink: 0;
-      letter-spacing: 0.01em;
+    /* ── Modal (module manager) ───────────────────────────────── */
+    #modal-backdrop {
+      position: fixed; inset: 0;
+      background: rgba(20,40,50,0.45);
+      z-index: 100;
+      display: none;
+      align-items: center;
+      justify-content: center;
     }
-    .sidebar-footer a {
-      color: rgba(255,255,255,0.75);
-      text-decoration: none;
-      transition: color 0.15s;
+    #modal-backdrop.open { display: flex; }
+    #modal {
+      background: var(--white);
+      border-radius: 8px;
+      width: 560px;
+      max-width: 94vw;
+      max-height: 86vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.25);
     }
-    .sidebar-footer a:hover { color: #fff; }
+    #modal-header {
+      background: var(--primary);
+      color: white;
+      padding: 0.7rem 1rem;
+      font-weight: 600;
+      font-size: 0.9rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    #modal-close { background: none; border: none; color: white; font-size: 1.1rem; cursor: pointer; line-height: 1; }
+    #modal-body { padding: 0.8rem 1rem; overflow-y: auto; display: flex; flex-direction: column; gap: 0.6rem; }
 
-    /* ?? Loading overlay ??????????????????????????????????????? */
+    .mod-list-item {
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      padding: 0.5rem 0.6rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .mod-list-item .mod-name { font-weight: 600; font-size: 0.82rem; }
+    .mod-list-item .mod-sub  { font-size: 0.68rem; color: var(--text-muted); margin-top: 0.05rem; }
+    .mod-badge {
+      font-size: 0.6rem; font-weight: 600; text-transform: uppercase;
+      background: var(--accent-light); color: var(--accent);
+      border-radius: 3px; padding: 0.1rem 0.35rem;
+    }
+    .mod-actions { display: flex; gap: 0.3rem; flex-shrink: 0; }
+
+    .field-editor-row {
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      padding: 0.5rem;
+      display: grid;
+      grid-template-columns: 1fr 130px;
+      gap: 0.35rem;
+      background: var(--bg);
+    }
+    .field-editor-row .full { grid-column: 1 / -1; }
+    .fe-foot { display: flex; justify-content: space-between; align-items: center; grid-column: 1 / -1; }
+    .fe-req { display: flex; align-items: center; gap: 0.3rem; font-size: 0.7rem; color: var(--text-muted); margin: 0; font-weight: 400; }
+    .fe-req input { width: auto; }
+
+    /* ── Map area ─────────────────────────────────────────────── */
+    #map-area { flex: 1; position: relative; overflow: hidden; background: #1a1a2e; }
     #pano-loading {
       position: absolute;
       inset: 0;
@@ -500,344 +540,1532 @@
       justify-content: center;
       color: rgba(255,255,255,0.5);
       font-size: 0.875rem;
-      font-family: var(--font);
       z-index: 1;
       pointer-events: none;
       transition: opacity 0.4s;
     }
     #pano-loading.hidden { opacity: 0; }
+    #pano { position: absolute; inset: 0; }
+    #map {
+      position: absolute;
+      bottom: 16px;
+      right: 16px;
+      width: 220px;
+      height: 165px;
+      border-radius: 8px;
+      border: 2px solid rgba(255,255,255,0.9);
+      box-shadow: 0 4px 18px rgba(0,0,0,0.38);
+      z-index: 5;
+      overflow: hidden;
+    }
   </style>
 </head>
 <body>
 
 <div id="app">
 
-  <!-- ?? Sidebar ???????????????????????????????????????????????? -->
-  <aside id="sidebar">
+  <!-- ── Sidebar ──────────────────────────────────────────── -->
+  <div id="sidebar">
 
     <div class="sidebar-header">
-      <h1>Urban Change Observer</h1>
+      <h1>Virtual Street Audit</h1>
       <span class="obs-badge" id="obs-badge">0</span>
     </div>
 
-    <div class="sidebar-scroll">
+    <div class="sidebar-body">
 
-      <!-- Location -->
-      <section class="sidebar-section">
-        <div class="section-title">Location</div>
-        <div class="search-row">
-          <input type="text" id="address-input" placeholder="Search address or place…">
-          <button class="btn btn-outline btn-sm" id="search-btn" onclick="searchLocation()">Go</button>
-        </div>
-        <div id="current-address-display">—</div>
-      </section>
-
-      <!-- Imagery Date -->
-      <section class="sidebar-section">
-        <div class="section-title">Imagery Date</div>
-        <select id="imageDate" onchange="dateSelectChangeHandler()">
-          <option value="">Loading…</option>
-        </select>
-        <div class="current-date-pill" id="current-date-pill"></div>
-      </section>
-
-      <!-- Record Observation -->
-      <section class="sidebar-section">
-        <div class="section-title">Record Observation</div>
-
-        <div id="edit-bar">
-          ? Editing observation
-          <button class="btn btn-outline btn-sm" onclick="cancelEdit()" style="padding:2px 8px;font-size:0.625rem">Cancel (Esc)</button>
-        </div>
-
-        <div class="field">
-          <label>Observer ID</label>
-          <input type="text" id="observer" placeholder="Your name or ID">
-        </div>
-
-        <div class="field-row">
-          <div class="field">
-            <label>Current Date</label>
-            <input type="text" id="currentImageryDate" readonly placeholder="—">
+      <!-- Audit module -->
+      <div class="section">
+        <div class="section-title">Audit Module</div>
+        <div class="section-body">
+          <div class="module-row">
+            <select id="module-select" onchange="selectModule(this.value)"></select>
+            <button class="btn btn-outline btn-sm" onclick="openManager()">Manage</button>
           </div>
-          <div class="field">
-            <label>Backup Date</label>
-            <input type="text" id="backupImageryDate" placeholder="Optional">
+          <div class="module-desc" id="module-desc"></div>
+        </div>
+      </div>
+
+      <!-- Location & Imagery (merged, compact) -->
+      <div class="section">
+        <div class="section-title">Location &amp; Imagery</div>
+        <div class="section-body">
+          <div id="search-row">
+            <input type="text" id="address-input" placeholder="Address or lat, lng…" />
+            <button class="btn btn-secondary" id="search-btn" onclick="searchAddress()">Go</button>
           </div>
-        </div>
-
-        <div class="field">
-          <label>Feature Type <span class="req">*</span></label>
-          <select id="feature">
-            <option value="">— Select —</option>
-            <option value="Apartment/Condo">Apartment / Condo Building</option>
-            <option value="Office Building">Office Building</option>
-            <option value="House">House</option>
-            <option value="Restaurant/Bar">Restaurant / Bar</option>
-            <option value="Store">Store</option>
-            <option value="Construction Site">Construction Site</option>
-            <option value="Street">Street</option>
-            <option value="Infrastructure">Infrastructure</option>
-            <option value="Public Space">Public Space</option>
-            <option value="Green Space">Green Space</option>
-            <option value="Cycling Infrastructure">Cycling Infrastructure</option>
-            <option value="Trees/Vegetation">Trees / Vegetation</option>
-            <option value="Art/Mural">Art / Mural</option>
-            <option value="Other">Other</option>
-          </select>
-        </div>
-
-        <div class="field">
-          <label>Change Type <span class="req">*</span></label>
-          <select id="featurechange">
-            <option value="">— Select —</option>
-            <option value="Changed to new feature type">Changed to new feature type</option>
-            <option value="Changed but same feature type">Changed but same feature type</option>
-            <option value="Same feature, upgraded/renovated">Same feature, upgraded / renovated</option>
-            <option value="Not applicable">Not applicable</option>
-          </select>
-        </div>
-
-        <div class="field-row">
-          <div class="field">
-            <label>Est. Year of Change</label>
-            <input type="number" id="estyear" placeholder="e.g. 2018" min="1900" max="2035">
+          <div id="current-address-display"></div>
+          <div>
+            <label>Imagery date</label>
+            <select id="imageDate" onchange="dateSelectChangeHandler()">
+              <option value="">Navigate to a location…</option>
+            </select>
           </div>
-          <div class="field">
-            <label>Confidence (1–5)</label>
-            <div class="conf-row">
-              <button class="conf-btn" data-val="1" onclick="setConfidence(1)">1</button>
-              <button class="conf-btn" data-val="2" onclick="setConfidence(2)">2</button>
-              <button class="conf-btn active" data-val="3" onclick="setConfidence(3)">3</button>
-              <button class="conf-btn" data-val="4" onclick="setConfidence(4)">4</button>
-              <button class="conf-btn" data-val="5" onclick="setConfidence(5)">5</button>
+          <div class="field-row">
+            <div>
+              <label>Current</label>
+              <input type="text" id="currentImageryDate" readonly placeholder="—" />
+            </div>
+            <div>
+              <label>Backup date</label>
+              <input type="text" id="backupImageryDate" placeholder="Optional" />
             </div>
           </div>
-        </div>
-
-        <div class="field">
-          <label>Explanation of Change</label>
-          <textarea id="explanation" placeholder="Describe what changed…" rows="2"></textarea>
-        </div>
-
-        <div class="field">
-          <label>Notes</label>
-          <textarea id="notes" placeholder="Additional observations…" rows="2"></textarea>
-        </div>
-
-        <button class="btn btn-primary btn-block" id="record-btn" onclick="recordObservation()">
-          Record <kbd>Ctrl+↵</kbd>
-        </button>
-      </section>
-
-      <!-- Observations Log -->
-      <section class="sidebar-section">
-        <div class="section-title-row">
-          <span class="section-title">Observations (<span id="obs-count">0</span>)</span>
-          <div class="btn-group">
-            <button class="btn btn-outline btn-sm" onclick="downloadDataset()">⬇ CSV</button>
-            <button class="btn btn-danger btn-sm" onclick="clearAllData()">Clear</button>
+          <div>
+            <label>Observer ID</label>
+            <input type="text" id="observer" placeholder="Your name or ID" />
           </div>
         </div>
-        <div id="obs-log">
-          <div class="empty-log">No observations yet</div>
-        </div>
-      </section>
+      </div>
 
-    </div><!-- end .sidebar-scroll -->
+      <!-- Tabs: Record / Observations -->
+      <div class="section" style="flex-shrink:1">
+        <div class="tab-bar">
+          <button class="tab-btn active" id="tab-btn-form" onclick="switchTab('form',this)">Record</button>
+          <button class="tab-btn" id="tab-btn-obs"  onclick="switchTab('obs',this)">
+            Observations (<span id="obs-count">0</span>)
+          </button>
+        </div>
+
+        <!-- Record form (rendered from module schema) -->
+        <div id="tab-form" class="tab-panel active section-body">
+          <div id="edit-bar">
+            ⚠ Editing observation
+            <button class="btn btn-outline btn-sm" onclick="cancelEdit()" style="padding:2px 8px;font-size:0.625rem">Cancel (Esc)</button>
+          </div>
+          <div id="module-form"></div>
+          <div>
+            <label>Notes</label>
+            <textarea id="core-notes" rows="2" placeholder="Additional observations…"></textarea>
+          </div>
+          <div>
+            <label>Confidence (1–5)</label>
+            <div class="scale-row" id="confidence-row">
+              <button class="scale-btn" onclick="setConfidence(1)">1</button>
+              <button class="scale-btn" onclick="setConfidence(2)">2</button>
+              <button class="scale-btn" onclick="setConfidence(3)">3</button>
+              <button class="scale-btn" onclick="setConfidence(4)">4</button>
+              <button class="scale-btn" onclick="setConfidence(5)">5</button>
+            </div>
+            <input type="hidden" id="confidence-value" value="3" />
+          </div>
+          <button class="btn btn-primary btn-full" id="save-btn" onclick="saveObservation()">
+            Record <kbd>Ctrl+↵</kbd>
+          </button>
+          <button class="btn btn-outline btn-full" style="font-size:0.75rem" onclick="resetForm()">Clear Form</button>
+        </div>
+
+        <!-- Observations list -->
+        <div id="tab-obs" class="tab-panel section-body">
+          <div class="obs-controls">
+            <button class="btn btn-outline btn-sm" onclick="exportCsvModule()">⬇ CSV · module</button>
+            <button class="btn btn-outline btn-sm" onclick="exportCsvAll()">⬇ CSV · all</button>
+            <button class="btn btn-danger btn-sm" onclick="clearAllData()">Clear</button>
+          </div>
+          <div id="obs-list" class="obs-list">
+            <div class="obs-empty">No observations yet</div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /sidebar-body -->
 
     <div class="sidebar-footer">
       <a href="https://jcinnamon.github.io/">J Cinnamon</a>
       &nbsp;·&nbsp; Virtual Street Audit &nbsp;·&nbsp; UBC Okanagan
     </div>
-  </aside>
 
-  <!-- ?? Map + Panorama ???????????????????????????????????????? -->
+  </div><!-- /sidebar -->
+
+  <!-- ── Map / Panorama ────────────────────────────────── -->
   <div id="map-area">
     <div id="pano-loading">Loading Street View…</div>
     <div id="pano"></div>
     <div id="map"></div>
   </div>
 
-</div><!-- end #app -->
+</div><!-- /app -->
 
 <!-- Toast container -->
 <div id="toasts"></div>
 
+<!-- ── Module manager modal ─────────────────────────────── -->
+<div id="modal-backdrop">
+  <div id="modal">
+    <div id="modal-header">
+      <span id="modal-title">Manage Audit Modules</span>
+      <button id="modal-close" onclick="closeManager()">✕</button>
+    </div>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
 <script>
 // ================================================================
-// CONFIG — paste your real URLs here before deploying to GitHub
+// State
 // ================================================================
-// Google Maps API key (restrict to https://jcinnamon.github.io in Cloud Console)
-window.MAPS_API_KEY = 'AIzaSyBNVN2mixyttHxNeZjX63A96vEMtx0Nmio';
+const STORAGE_KEY        = 'virtualAuditObs_v3';
+const LEGACY_KEY_V2      = 'virtualAuditObs_v2';
+const LEGACY_KEY_V1      = 'virtualAuditObservations';
+const OBSERVER_KEY       = 'virtualAuditObserver';
+const CUSTOM_MODULES_KEY = 'virtualAuditCustomModules_v1';
+const CUSTOM_OPTIONS_KEY = 'virtualAuditCustomOptions_v1';
+const GROUP_STATE_KEY    = 'virtualAuditGroupState_v1';
 
-// Google Sheets logging — Apps Script web app URL (the /exec one from Deploy → Manage deployments)
-window.SHEETS_WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbx41lxp65_OJcSts1TB4BvYbelIOeDz470ipOp_0h0f5I4I_mzRcBLjnYU-QPZ2CUy2/exec';
+let observations       = [];
+let panorama, miniMap, geocoder, streetViewService;
+let isUpdatingFromDate = false;
+let currentAddress     = '';
+let editingId          = null;
+let currentModuleId    = 'urban-change';
+let gviState           = { value: '', method: '', detail: '' };
+let geocodeTimer       = null;
+let datesTimer         = null;
 
 // ================================================================
-// STATE
+// Built-in module definitions
+//
+// Field types: text, number, textarea, select, selectx (extendable
+// select — users can add their own options), radio, slider, likert,
+// bipolar (options = [left end, right end]), checks, tags, gvi.
+//
+// A field with `section` starts a collapsible group. `collapsed: true`
+// makes that group start collapsed (state persists per browser).
+// `sectionHint` shows small text on the group header.
 // ================================================================
-let map, panorama, streetViewService, geocoder;
-let observations   = [];
-let editingIndex   = null;
-let currentConfidence = 3;
-let currentAddress = '';
-let isChangingDate       = false;  // true during intentional date selection (100ms)
-let isUpdatingPanorama   = false;  // true while position_changed debounce is active (500ms)
-let selectedDateLabel    = null;   // preserved date text across panorama navigations
-let geocodeTimer   = null;
+const BUILTIN_MODULES = [
+  {
+    id: 'urban-change',
+    name: 'Urban Change',
+    description: 'Document physical changes to street features over time using historical Street View imagery.',
+    fields: [
+      { id: 'feature', label: 'Feature type', type: 'select', required: true,
+        options: ['Apartment/Condo', 'Office Building', 'House', 'Restaurant/Bar', 'Store',
+                  'Construction Site', 'Street', 'Infrastructure', 'Public Space', 'Green Space',
+                  'Cycling Infrastructure', 'Trees/Vegetation', 'Art/Mural', 'Other'] },
+      { id: 'featurechange', label: 'Change type', type: 'select', required: true,
+        options: ['Changed to new feature type', 'Changed but same feature type',
+                  'Same feature, upgraded/renovated', 'Not applicable'] },
+      { id: 'estyear',     label: 'Estimated year of change', type: 'number', min: 1900, max: 2035, placeholder: 'e.g. 2018' },
+      { id: 'explanation', label: 'Explanation of change',    type: 'textarea', rows: 2, placeholder: 'Describe what changed…' },
+    ],
+  },
+  {
+    id: 'gvi',
+    name: 'Green View Index',
+    description: 'Estimate and computationally calculate the proportion of visible vegetation in the street view. Heading, pitch, and zoom are logged for replicability.',
+    fields: [
+      { section: 'Manual estimate',
+        id: 'gviManual',  label: 'Visible vegetation (%)', type: 'slider', min: 0, max: 100, step: 1, value: 0 },
+      { id: 'vegTypes',   label: 'Vegetation types', type: 'checks',
+        options: ['Trees', 'Shrubs', 'Grass / ground cover', 'Planters / green walls', 'Vines / climbers'] },
+      { id: 'season',     label: 'Foliage condition', type: 'select',
+        options: ['Leaf-on (summer)', 'Partial (spring/autumn)', 'Leaf-off (winter)', 'Unsure'] },
+      { section: 'Computational GVI',
+        id: 'gviAuto',    label: '', type: 'gvi',
+        help: 'Pixel method: green-pixel classification (Li et al. 2015 thresholds). ML method: DeepLab ADE20K segmentation (~9 MB model on first use). Requires the Street View Static API on your key.' },
+    ],
+  },
+  {
+    id: 'perception',
+    name: 'Safety / Place Perception',
+    description: 'Place Pulse 2.0 perceptual ratings plus optional urban aesthetic dimensions. Expand the groups you want to rate.',
+    fields: [
+      { section: 'Place Pulse perceptions', sectionHint: '1 = not at all · 5 = very',
+        id: 'safe',       label: 'Safe',       type: 'likert' },
+      { id: 'lively',     label: 'Lively',     type: 'likert' },
+      { id: 'beautiful',  label: 'Beautiful',  type: 'likert' },
+      { id: 'wealthy',    label: 'Wealthy',    type: 'likert' },
+      { id: 'boring',     label: 'Boring',     type: 'likert' },
+      { id: 'depressing', label: 'Depressing', type: 'likert' },
+      { section: 'Aesthetics — order & maintenance', collapsed: true,
+        id: 'order',      label: 'Order',       type: 'bipolar', options: ['Cluttered', 'Orderly'] },
+      { id: 'maintenance',label: 'Maintenance', type: 'bipolar', options: ['Neglected', 'Maintained'] },
+      { id: 'cleanliness',label: 'Cleanliness', type: 'bipolar', options: ['Messy', 'Clean'] },
+      { section: 'Aesthetics — design character', collapsed: true,
+        id: 'distinctive',label: 'Distinctiveness', type: 'bipolar', options: ['Generic', 'Distinctive'] },
+      { id: 'coherence',  label: 'Coherence',       type: 'bipolar', options: ['Chaotic', 'Coherent'] },
+      { id: 'humanScale', label: 'Human scale',     type: 'bipolar', options: ['Not human-scaled', 'Human-scaled'] },
+      { id: 'historic',   label: 'Historic character', type: 'bipolar', options: ['None', 'Strong'] },
+      { section: 'Aesthetics — sensory & affective', collapsed: true,
+        id: 'calm',       label: 'Calm',     type: 'bipolar', options: ['Chaotic', 'Calm'] },
+      { id: 'inviting',   label: 'Inviting', type: 'bipolar', options: ['Hostile', 'Inviting'] },
+      { id: 'vibrant',    label: 'Vibrancy', type: 'bipolar', options: ['Sterile', 'Vibrant'] },
+    ],
+  },
+  {
+    id: 'scene-analysis',
+    name: 'Urban Scene Analysis',
+    description: 'Geosemiotic analysis of any urban scene: observed features, inscription, emplacement, and semiotic aggregate (Scollon & Scollon 2003). Expand “Temporal analysis” to conduct a semiotic timescene analysis (STSA).',
+    fields: [
+      { section: 'Observed features',
+        id: 'focalObject', label: 'Focal object(s) / feature(s)', type: 'text', required: true, placeholder: 'e.g. Mural, parklet, e-scooter corral…' },
+      { id: 'focalCategory', label: 'Focal category', type: 'selectx',
+        options: ['Building / structure', 'Street / road infrastructure', 'Street furniture', 'Vehicle', 'Signage / advertising', 'Greenery / natural feature', 'Public space element', 'Public art', 'Trace of activity', 'Other object'] },
+      { id: 'sceneElements', label: 'Scene elements present', type: 'tags',
+        options: ['Pedestrians', 'Cyclists', 'Private vehicles', 'Delivery / service vehicles', 'Public transit', 'Micromobility', 'Street furniture', 'Greenery / landscaping', 'Commercial frontage', 'Residential frontage', 'Analog signage', 'Digital screens', 'Lighting', 'Construction', 'Heritage architecture', 'Public art', 'Litter / debris'] },
+      { id: 'timeOfDay', label: 'Time of day (in imagery)', type: 'select',
+        options: ['Early morning', 'Morning peak', 'Midday', 'Afternoon', 'Evening peak', 'Evening', 'Night', 'Indeterminate'] },
+      { id: 'context', label: 'Built-environment context', type: 'select',
+        options: ['Commercial / retail', 'Residential', 'Mixed-use', 'Transit interchange', 'Civic / institutional', 'Industrial', 'Park / open space', 'Waterfront', 'Other'] },
+      { section: 'Inscription — material & condition',
+        id: 'condition', label: 'Material condition', type: 'select',
+        options: ['New / pristine', 'Maintained', 'Worn', 'Damaged', 'Derelict / residual'] },
+      { id: 'opStatus', label: 'Operational status', type: 'select',
+        options: ['In use / active', 'Idle / awaiting use', 'Stored / staged', 'Abandoned', 'Under maintenance / removal', 'Trace / residue only'] },
+      { id: 'permanence', label: 'Permanence / durability', type: 'select',
+        options: ['Permanent', 'Semi-permanent', 'Transient', 'Ephemeral'] },
+      { id: 'layering', label: 'Layering — add-ons / extensions', type: 'tags',
+        options: ['Stickers / decals', 'Graffiti / tagging', 'Official notices', 'Repairs / patches', 'Temporal labels (“new”, “on sale”)', 'Weathering traces', 'None'],
+        help: 'Inscriptions superimposed on a more permanent inscription.' },
+      { id: 'stateChange', label: 'State changes', type: 'select',
+        options: ['Illuminated / powered on', 'Powered off / dormant', 'In motion', 'Stationary', 'Covered / wrapped', 'Open / deployed', 'Closed / folded', 'Not applicable'],
+        help: 'Current meaning given by the object’s present state (e.g. a lit “open” sign).' },
+      { id: 'inscriptionNotes', label: 'Inscription notes', type: 'textarea', rows: 2, placeholder: 'Material substance, visual condition, meaning…' },
+      { section: 'Emplacement',
+        id: 'emplacement', label: 'Emplacement type', type: 'radio',
+        options: ['Decontextualized', 'Situated', 'Transgressive'],
+        help: 'Decontextualized: legible regardless of context · Situated: meaning from expected placement · Transgressive: violates placement conventions' },
+      { id: 'emplacementNotes', label: 'Emplacement notes', type: 'textarea', rows: 2, placeholder: 'Relationship between object and location…' },
+      { section: 'Semiotic aggregate',
+        id: 'aggregateNotes', label: 'Compound meaning of co-present elements', type: 'textarea', rows: 2, placeholder: 'What meaning emerges from the whole scene?' },
+      { id: 'interpretation', label: 'Interpretation / analytic memo', type: 'textarea', rows: 2, placeholder: 'Analytical reading of the scene…' },
+      { section: 'Temporal analysis (STSA)', collapsed: true, sectionHint: 'optional',
+        id: 'diachronicNotes', label: 'Diachronic — prior arrangements, traces, residues', type: 'textarea', rows: 2,
+        placeholder: 'What was here before? What traces remain?',
+        help: 'Use the Imagery Date picker to compare earlier panoramas of this scene.' },
+      { id: 'adamElements', label: 'Timescape elements (Adam 1998)', type: 'tags',
+        options: ['Rhythmicity', 'Timing', 'Tempo', 'Duration', 'Sequence', 'Temporal modality'] },
+      { id: 'timescene', label: 'Timescene classification', type: 'selectx',
+        options: ['Rhythm', 'Syncopation', 'Juxtaposition'],
+        help: 'Choose a timescene or add your own via “+ Add”.' },
+      { id: 'temporalNotes', label: 'Temporal interpretation', type: 'textarea', rows: 2, placeholder: 'How does time become visible in this scene?' },
+    ],
+  },
+];
 
 // ================================================================
-// GOOGLE MAPS INIT  (called by Maps API callback)
+// localStorage — observations (with migration from v1/v2)
 // ================================================================
-function initMap() {
-  const defaultCenter = { lat: 49.88635, lng: -119.49349 }; // Bernard Ave, Kelowna
+function loadObs() {
+  try {
+    const v3 = localStorage.getItem(STORAGE_KEY);
+    if (v3) return JSON.parse(v3);
 
-  map = new google.maps.Map(document.getElementById('map'), {
-    center: defaultCenter,
-    zoom: 17,
-    disableDefaultUI: true,
-    zoomControl: true,
-    streetViewControl: true,
-    streetViewControlOptions: { position: google.maps.ControlPosition.RIGHT_BOTTOM },
-    mapTypeControl: false,
-  });
-
-  panorama = new google.maps.StreetViewPanorama(
-    document.getElementById('pano'), {
-      position: defaultCenter,
-      pov: { heading: 165, pitch: 0 },
-      zoom: 1,
-      addressControl: true,
-      fullscreenControl: false,
-      motionTracking: false,
-      motionTrackingControl: false,
-      imageDateControl: false,
-      source: google.maps.StreetViewSource.OUTDOOR,
+    // Migrate v1/v2 flat urban-change records into v3 module format
+    const legacyRaw = localStorage.getItem(LEGACY_KEY_V2) || localStorage.getItem(LEGACY_KEY_V1);
+    if (legacyRaw) {
+      const old = JSON.parse(legacyRaw);
+      const migrated = old.map(o => ({
+        id:        o.id || Date.now().toString() + Math.random().toString(36).slice(2, 6),
+        timestamp: o.timestamp,
+        module:    'urban-change',
+        observer:  o.observer || '',
+        confidence: o.confidence || 3,
+        notes:     o.notes || '',
+        lat: o.lat, lng: o.lng, heading: o.heading, pitch: o.pitch, zoom: o.zoom || '',
+        imageDate: o.imageDate || '', backupDate: o.backupDate || '',
+        streetAddress: o.streetAddress || '',
+        data: {
+          feature:       o.feature       || '',
+          featurechange: o.featurechange || '',
+          estyear:       o.estyear       || '',
+          explanation:   o.explanation   || '',
+        },
+      }));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated));
+      return migrated;
     }
-  );
+    return [];
+  } catch (e) { return []; }
+}
 
-  map.setStreetView(panorama);
-
-
-  streetViewService = new google.maps.StreetViewService();
-  geocoder          = new google.maps.Geocoder();
-
-  // Hide loading overlay once pano tiles start rendering
-  panorama.addListener('tiles_loaded', () => {
-    document.getElementById('pano-loading').classList.add('hidden');
-  });
-
-  // Sync date selector when user navigates manually
-  panorama.addListener('pano_changed', syncDateSelector);
-
-  // Keep mini-map centred and reverse geocode on move
-  panorama.addListener('position_changed', function() {
-    if (isChangingDate || isUpdatingPanorama) return;
-    const pos = panorama.getPosition();
-    if (!pos) return;
-    map.setCenter(pos);
-    debouncedReverseGeocode(pos);
-
-    // Debounce: let the panorama settle, then refresh dates for the new position.
-    // This increments _dateReqId, which cancels any stale async callbacks from
-    // the previous location (preventing snap-back).
-    isUpdatingPanorama = true;
-    setTimeout(() => {
-      updateAvailableDates(panorama.getPosition());
-      isUpdatingPanorama = false;
-    }, 500);
-  });
-
-    // Address input: Enter key triggers search
-  document.getElementById('address-input')
-    .addEventListener('keydown', e => { if (e.key === 'Enter') searchLocation(); });
-
-  loadObservations();
-  loadSavedObserver();
-  updateAvailableDates(defaultCenter);
+function persistObs() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(observations)); } catch (e) {}
 }
 
 // ================================================================
-// DATES
+// Custom modules + custom select options
 // ================================================================
-let _dateReqId = 0;
+function loadCustomModules() {
+  try { return JSON.parse(localStorage.getItem(CUSTOM_MODULES_KEY)) || []; } catch (e) { return []; }
+}
+function saveCustomModules(mods) {
+  try { localStorage.setItem(CUSTOM_MODULES_KEY, JSON.stringify(mods)); } catch (e) {}
+}
+function getAllModules() {
+  return [...BUILTIN_MODULES, ...loadCustomModules()];
+}
+function getModule(id) {
+  return getAllModules().find(m => m.id === id) || BUILTIN_MODULES[0];
+}
+
+function loadCustomOptions() {
+  try { return JSON.parse(localStorage.getItem(CUSTOM_OPTIONS_KEY)) || {}; } catch (e) { return {}; }
+}
+function addCustomOption(key, option) {
+  const all = loadCustomOptions();
+  all[key] = all[key] || [];
+  if (!all[key].includes(option)) all[key].push(option);
+  try { localStorage.setItem(CUSTOM_OPTIONS_KEY, JSON.stringify(all)); } catch (e) {}
+}
+function getOptionsFor(moduleId, field) {
+  const extra = loadCustomOptions()[moduleId + '.' + field.id] || [];
+  return [...(field.options || []), ...extra];
+}
+
+// ================================================================
+// Collapsible group state
+// ================================================================
+function loadGroupState() {
+  try { return JSON.parse(localStorage.getItem(GROUP_STATE_KEY)) || {}; } catch (e) { return {}; }
+}
+function saveGroupState(state) {
+  try { localStorage.setItem(GROUP_STATE_KEY, JSON.stringify(state)); } catch (e) {}
+}
+function groupOpen(moduleId, slug, defaultOpen) {
+  const s = loadGroupState()[moduleId + '.' + slug];
+  return s === undefined ? defaultOpen : !!s;
+}
+function setGroupOpen(moduleId, slug, open) {
+  const state = loadGroupState();
+  state[moduleId + '.' + slug] = open ? 1 : 0;
+  saveGroupState(state);
+}
+function toggleGroup(moduleId, slug, headerBtn) {
+  const content = headerBtn.nextElementSibling;
+  const open = content.style.display === 'none';
+  content.style.display = open ? 'flex' : 'none';
+  const caret = headerBtn.querySelector('.caret');
+  if (caret) caret.textContent = open ? '▾' : '▸';
+  setGroupOpen(moduleId, slug, open);
+}
+function expandGroupOf(el) {
+  const gc = el.closest ? el.closest('.group-content') : null;
+  if (gc && gc.style.display === 'none') {
+    gc.style.display = 'flex';
+    const hdr = gc.previousElementSibling;
+    const caret = hdr ? hdr.querySelector('.caret') : null;
+    if (caret) caret.textContent = '▾';
+  }
+}
+
+// ================================================================
+// Escaping
+// ================================================================
+function esc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+function escAttr(s) { return esc(s).replace(/'/g, '&#39;'); }
+
+// ================================================================
+// Toasts
+// ================================================================
+function showToast(msg, type = 'info') {
+  const div = document.createElement('div');
+  div.className = `toast ${type}`;
+  div.textContent = msg;
+  document.getElementById('toasts').appendChild(div);
+  setTimeout(() => div.remove(), 2800);
+}
+
+// ================================================================
+// Field rendering
+// ================================================================
+function fieldHtml(moduleId, f) {
+  const req  = f.required ? ' <span class="req">*</span>' : '';
+  const help = f.help ? `<div class="field-help">${esc(f.help)}</div>` : '';
+  let inner = '';
+
+  switch (f.type) {
+    case 'text':
+      inner = `<label>${esc(f.label)}${req}</label>
+        <input type="text" data-fid="${escAttr(f.id)}" placeholder="${escAttr(f.placeholder || '')}" />`;
+      break;
+
+    case 'number':
+      inner = `<label>${esc(f.label)}${req}</label>
+        <input type="number" data-fid="${escAttr(f.id)}" placeholder="${escAttr(f.placeholder || '')}"
+          ${f.min != null ? `min="${f.min}"` : ''} ${f.max != null ? `max="${f.max}"` : ''} />`;
+      break;
+
+    case 'textarea':
+      inner = `<label>${esc(f.label)}${req}</label>
+        <textarea data-fid="${escAttr(f.id)}" rows="${f.rows || 2}" placeholder="${escAttr(f.placeholder || '')}"></textarea>`;
+      break;
+
+    case 'select':
+      inner = `<label>${esc(f.label)}${req}</label>
+        <select data-fid="${escAttr(f.id)}">
+          <option value="">— Select —</option>
+          ${(f.options || []).map(o => `<option value="${escAttr(o)}">${esc(o)}</option>`).join('')}
+        </select>`;
+      break;
+
+    case 'selectx': {
+      const opts = getOptionsFor(moduleId, f);
+      inner = `<label>${esc(f.label)}${req}</label>
+        <div style="display:flex;gap:0.35rem">
+          <select data-fid="${escAttr(f.id)}" style="flex:1">
+            <option value="">— Select —</option>
+            ${opts.map(o => `<option value="${escAttr(o)}">${esc(o)}</option>`).join('')}
+          </select>
+          <button type="button" class="btn btn-outline btn-sm" onclick="promptAddOption('${escAttr(moduleId)}','${escAttr(f.id)}')">+ Add</button>
+        </div>`;
+      break;
+    }
+
+    case 'radio':
+      inner = `<label>${esc(f.label)}${req}</label>
+        <div class="radio-row" data-fid="${escAttr(f.id)}">
+          ${(f.options || []).map(o => `
+            <label class="radio-opt">
+              <input type="radio" name="radio-${escAttr(moduleId)}-${escAttr(f.id)}" value="${escAttr(o)}" /> ${esc(o)}
+            </label>`).join('')}
+        </div>`;
+      break;
+
+    case 'slider': {
+      const v = f.value != null ? f.value : (f.min || 0);
+      inner = `<label>${esc(f.label)}${req}</label>
+        <div class="slider-row">
+          <input type="range" data-fid="${escAttr(f.id)}" min="${f.min || 0}" max="${f.max || 100}"
+            step="${f.step || 1}" value="${v}"
+            oninput="this.parentElement.querySelector('.slider-val').textContent = this.value + '%'" />
+          <span class="slider-val">${v}%</span>
+        </div>`;
+      break;
+    }
+
+    case 'likert':
+      inner = `<label>${esc(f.label)}${req}</label>
+        <div class="scale-row" data-fid="${escAttr(f.id)}" data-scale="1">
+          ${[1,2,3,4,5].map(n => `<button type="button" class="scale-btn" onclick="scaleClick(this,${n})">${n}</button>`).join('')}
+        </div>`;
+      break;
+
+    case 'bipolar':
+      inner = `<label>${esc(f.label)}${req}</label>
+        <div class="scale-row" data-fid="${escAttr(f.id)}" data-scale="1">
+          ${[1,2,3,4,5].map(n => `<button type="button" class="scale-btn" onclick="scaleClick(this,${n})">${n}</button>`).join('')}
+        </div>
+        <div class="bipolar-ends"><span>← ${esc((f.options || [])[0] || '')}</span><span>${esc((f.options || [])[1] || '')} →</span></div>`;
+      break;
+
+    case 'checks':
+    case 'tags':
+      inner = `<label>${esc(f.label)}${req}</label>
+        <div class="chips" data-fid="${escAttr(f.id)}">
+          ${(f.options || []).map(o => `
+            <button type="button" class="chip" data-val="${escAttr(o)}" onclick="this.classList.toggle('active')">${esc(o)}</button>`).join('')}
+        </div>`;
+      break;
+
+    case 'gvi':
+      inner = `
+        <div class="gvi-panel" data-fid="${escAttr(f.id)}">
+          <label class="ml-toggle"><input type="checkbox" id="gvi-ml-toggle" />
+            Use ML segmentation (DeepLab — slower, more accurate)</label>
+          <div class="gvi-buttons">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="calcGvi('view')">Calculate · this view</button>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="calcGvi('point')">Calculate · 4-heading avg</button>
+          </div>
+          <div class="gvi-status" id="gvi-status"></div>
+          <div class="gvi-result" id="gvi-result"></div>
+        </div>${help}`;
+      return `<div>${inner}</div>`;
+
+    default:
+      inner = `<label>${esc(f.label)}</label>
+        <input type="text" data-fid="${escAttr(f.id)}" />`;
+  }
+  return `<div>${inner}${help}</div>`;
+}
+
+// Fill-up scale selection (all buttons ≤ value light up)
+function scaleClick(btn, val) {
+  const row = btn.parentElement;
+  row.querySelectorAll('.scale-btn').forEach((b, i) => b.classList.toggle('active', i + 1 <= val));
+  row.dataset.value = val;
+}
+
+function promptAddOption(moduleId, fieldId) {
+  const name = prompt('New option label:');
+  if (!name || !name.trim()) return;
+  addCustomOption(moduleId + '.' + fieldId, name.trim());
+  const sel = document.querySelector(`#module-form select[data-fid="${fieldId}"]`);
+  if (sel) {
+    const opt = document.createElement('option');
+    opt.value = name.trim();
+    opt.textContent = name.trim();
+    sel.appendChild(opt);
+    sel.value = name.trim();
+  }
+  showToast(`Option “${name.trim()}” added`, 'success');
+}
+
+// ================================================================
+// Render the module form (with collapsible groups)
+// ================================================================
+function renderModuleSelect() {
+  const sel = document.getElementById('module-select');
+  sel.innerHTML = getAllModules()
+    .map(m => `<option value="${escAttr(m.id)}" ${m.id === currentModuleId ? 'selected' : ''}>${esc(m.name)}</option>`)
+    .join('');
+}
+
+function selectModule(id) {
+  currentModuleId = id;
+  if (editingId) cancelEdit();
+  renderForm();
+}
+
+function renderForm() {
+  const mod  = getModule(currentModuleId);
+  const root = document.getElementById('module-form');
+  document.getElementById('module-desc').textContent = mod.description || '';
+
+  let html = '';
+  let inGroup = false;
+  for (const f of mod.fields) {
+    if (f.section) {
+      if (inGroup) html += '</div></div>';
+      const slug = slugify(f.section);
+      const open = groupOpen(mod.id, slug, !f.collapsed);
+      html += `<div class="group" data-group="${escAttr(slug)}">
+        <button type="button" class="group-header" onclick="toggleGroup('${escAttr(mod.id)}','${escAttr(slug)}',this)">
+          <span class="caret">${open ? '▾' : '▸'}</span>${esc(f.section)}
+          ${f.sectionHint ? `<span class="group-hint">${esc(f.sectionHint)}</span>` : ''}
+        </button>
+        <div class="group-content" style="display:${open ? 'flex' : 'none'}">`;
+      inGroup = true;
+    }
+    html += fieldHtml(mod.id, f);
+  }
+  if (inGroup) html += '</div></div>';
+
+  root.innerHTML = html;
+  root.style.display = 'flex';
+  root.style.flexDirection = 'column';
+  root.style.gap = '0.35rem';
+  gviState = { value: '', method: '', detail: '' };
+}
+
+// ================================================================
+// Collect / set field values
+// ================================================================
+function collectFields(mod) {
+  const root = document.getElementById('module-form');
+  const data = {};
+  for (const f of mod.fields) {
+    switch (f.type) {
+      case 'text': case 'number': case 'textarea': case 'select': case 'selectx': {
+        const el = root.querySelector(`[data-fid="${f.id}"]`);
+        data[f.id] = el ? el.value.trim() : '';
+        break;
+      }
+      case 'radio': {
+        const checked = root.querySelector(`[data-fid="${f.id}"] input:checked`);
+        data[f.id] = checked ? checked.value : '';
+        break;
+      }
+      case 'slider': {
+        const el = root.querySelector(`[data-fid="${f.id}"]`);
+        data[f.id] = el ? Number(el.value) : '';
+        break;
+      }
+      case 'likert': case 'bipolar': {
+        const row = root.querySelector(`[data-fid="${f.id}"]`);
+        data[f.id] = row && row.dataset.value ? Number(row.dataset.value) : '';
+        break;
+      }
+      case 'checks': case 'tags': {
+        const chips = root.querySelectorAll(`[data-fid="${f.id}"] .chip.active`);
+        data[f.id] = Array.from(chips).map(c => c.dataset.val);
+        break;
+      }
+      case 'gvi': {
+        data.gviAuto   = gviState.value;
+        data.gviMethod = gviState.method;
+        data.gviDetail = gviState.detail;
+        break;
+      }
+    }
+  }
+  return data;
+}
+
+function setFields(mod, data) {
+  const root = document.getElementById('module-form');
+  for (const f of mod.fields) {
+    const v = data[f.id];
+    const hasValue = !(v == null || v === '' || (Array.isArray(v) && !v.length));
+    switch (f.type) {
+      case 'text': case 'number': case 'textarea': case 'select': case 'selectx': {
+        const el = root.querySelector(`[data-fid="${f.id}"]`);
+        if (el) {
+          el.value = v != null ? v : '';
+          if (hasValue) expandGroupOf(el);
+        }
+        break;
+      }
+      case 'radio': {
+        const wrap = root.querySelector(`[data-fid="${f.id}"]`);
+        if (wrap) {
+          wrap.querySelectorAll('input').forEach(i => { i.checked = (i.value === v); });
+          if (hasValue) expandGroupOf(wrap);
+        }
+        break;
+      }
+      case 'slider': {
+        const el = root.querySelector(`[data-fid="${f.id}"]`);
+        if (el) {
+          el.value = v != null && v !== '' ? v : (f.min || 0);
+          const sv = el.parentElement.querySelector('.slider-val');
+          if (sv) sv.textContent = el.value + '%';
+        }
+        break;
+      }
+      case 'likert': case 'bipolar': {
+        const row = root.querySelector(`[data-fid="${f.id}"]`);
+        if (row) {
+          row.querySelectorAll('.scale-btn').forEach((b, i) => b.classList.toggle('active', v && i + 1 <= v));
+          if (v) { row.dataset.value = v; expandGroupOf(row); } else delete row.dataset.value;
+        }
+        break;
+      }
+      case 'checks': case 'tags': {
+        const arr = Array.isArray(v) ? v : String(v || '').split('; ').filter(Boolean);
+        const wrap = root.querySelector(`[data-fid="${f.id}"]`);
+        if (wrap) {
+          wrap.querySelectorAll('.chip').forEach(c =>
+            c.classList.toggle('active', arr.includes(c.dataset.val)));
+          if (arr.length) expandGroupOf(wrap);
+        }
+        break;
+      }
+      case 'gvi': {
+        gviState = {
+          value:  data.gviAuto   != null ? data.gviAuto   : '',
+          method: data.gviMethod || '',
+          detail: data.gviDetail || '',
+        };
+        if (gviState.value !== '') showGviResult();
+        break;
+      }
+    }
+  }
+}
+
+function validateRequired(mod, data) {
+  let firstError = null;
+  const root = document.getElementById('module-form');
+  for (const f of mod.fields) {
+    const el = root.querySelector(`[data-fid="${f.id}"]`);
+    const empty = f.required && (data[f.id] === '' || data[f.id] == null ||
+      (Array.isArray(data[f.id]) && !data[f.id].length));
+    if (el && el.classList) el.classList.toggle('error', !!empty);
+    if (empty && el) expandGroupOf(el);
+    if (empty && !firstError) firstError = f.label;
+  }
+  return firstError ? `“${firstError}” is required` : null;
+}
+
+// ================================================================
+// Computational GVI
+// ================================================================
+function gviStatus(msg) {
+  const el = document.getElementById('gvi-status');
+  if (!el) return;
+  el.textContent = msg || '';
+  el.style.display = msg ? 'block' : 'none';
+}
+
+function showGviResult() {
+  const el = document.getElementById('gvi-result');
+  if (!el) return;
+  if (gviState.value === '') { el.style.display = 'none'; return; }
+  el.innerHTML = `Computed GVI: <strong>${gviState.value}%</strong>
+    <span style="color:var(--text-muted)"> · ${esc(gviState.method)}</span>
+    ${gviState.detail ? `<div style="font-size:0.66rem;color:var(--text-muted);margin-top:0.15rem">${esc(gviState.detail)}</div>` : ''}`;
+  el.style.display = 'block';
+}
+
+function loadScriptOnce(src) {
+  return new Promise((resolve, reject) => {
+    if (document.querySelector(`script[src="${src}"]`)) { resolve(); return; }
+    const s = document.createElement('script');
+    s.src = src;
+    s.onload = resolve;
+    s.onerror = () => reject(new Error('Failed to load ' + src));
+    document.head.appendChild(s);
+  });
+}
+
+let mlModelPromise = null;
+function getMlModel() {
+  if (!mlModelPromise) {
+    mlModelPromise = (async () => {
+      gviStatus('Loading TensorFlow.js…');
+      await loadScriptOnce('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.21.0/dist/tf.min.js');
+      gviStatus('Loading DeepLab model (~9 MB, first use only)…');
+      await loadScriptOnce('https://cdn.jsdelivr.net/npm/@tensorflow-models/deeplab@0.2.1/dist/deeplab.min.js');
+      const model = await deeplab.load({ base: 'ade20k', quantizationBytes: 2 });
+      return model;
+    })().catch(err => { mlModelPromise = null; throw err; });
+  }
+  return mlModelPromise;
+}
+
+function fetchPanoImage(panoId, heading, pitch, fov) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload  = () => resolve(img);
+    img.onerror = () => reject(new Error('Street View Static API image failed to load (check key / Static API enabled).'));
+    img.src = 'https://maps.googleapis.com/maps/api/streetview'
+      + `?size=640x640&pano=${encodeURIComponent(panoId)}`
+      + `&heading=${Math.round(heading)}&pitch=${Math.round(pitch)}&fov=${fov}`
+      + `&key=${encodeURIComponent(window.MAPS_API_KEY || '')}`;
+  });
+}
+
+// Pixel-based classification: green if G dominates R and B
+// (excess-green style threshold after Li et al. 2015)
+function greenFractionPixel(img) {
+  const c = document.createElement('canvas');
+  c.width = img.naturalWidth; c.height = img.naturalHeight;
+  const ctx = c.getContext('2d');
+  ctx.drawImage(img, 0, 0);
+  const d = ctx.getImageData(0, 0, c.width, c.height).data;
+  let green = 0, total = 0;
+  for (let i = 0; i < d.length; i += 4) {
+    const r = d[i], g = d[i + 1], b = d[i + 2];
+    total++;
+    if (g > r && g > b && (2 * g - r - b) >= 24 && g >= 40) green++;
+  }
+  return 100 * green / total;
+}
+
+// ML classification: fraction of pixels segmented as vegetation classes
+const VEG_LABEL_PATTERNS = ['tree', 'grass', 'plant', 'palm', 'flower', 'field', 'hedge'];
+async function greenFractionML(img) {
+  const model = await getMlModel();
+  gviStatus('Segmenting image…');
+  const out = await model.segment(img);
+  const vegColors = new Set();
+  for (const [label, rgb] of Object.entries(out.legend || {})) {
+    const l = label.toLowerCase();
+    if (VEG_LABEL_PATTERNS.some(p => l.includes(p))) vegColors.add(rgb.join(','));
+  }
+  const sm = out.segmentationMap;
+  let green = 0, total = 0;
+  for (let i = 0; i < sm.length; i += 4) {
+    total++;
+    if (vegColors.has(sm[i] + ',' + sm[i + 1] + ',' + sm[i + 2])) green++;
+  }
+  return 100 * green / total;
+}
+
+async function calcGvi(mode) {
+  if (!panorama) { gviStatus('Panorama not ready.'); return; }
+  const panoId = panorama.getPano();
+  if (!panoId) { gviStatus('Navigate to a Street View location first.'); return; }
+
+  const useML  = document.getElementById('gvi-ml-toggle')?.checked;
+  const fn     = useML ? greenFractionML : (img) => Promise.resolve(greenFractionPixel(img));
+  const method = (useML ? 'ML segmentation (DeepLab ADE20K)' : 'Pixel classification')
+               + (mode === 'view' ? ' · current view' : ' · 4-heading point avg');
+  const fov = 90;
+
+  try {
+    let value, detail;
+    if (mode === 'view') {
+      const pov = panorama.getPov();
+      gviStatus('Fetching current view…');
+      const img = await fetchPanoImage(panoId, pov.heading, pov.pitch, fov);
+      value  = await fn(img);
+      detail = `pano ${panoId} · heading ${Math.round(pov.heading)}° · pitch ${Math.round(pov.pitch)}° · fov ${fov}°`;
+    } else {
+      const headings = [0, 90, 180, 270];
+      const vals = [];
+      for (const h of headings) {
+        gviStatus(`Fetching heading ${h}°…`);
+        const img = await fetchPanoImage(panoId, h, 0, fov);
+        vals.push(await fn(img));
+      }
+      value  = vals.reduce((a, b) => a + b, 0) / vals.length;
+      detail = 'pano ' + panoId + ' · ' + headings.map((h, i) => `${h}°: ${vals[i].toFixed(1)}%`).join(' · ') + ` · pitch 0° · fov ${fov}°`;
+    }
+    gviState = { value: Math.round(value * 10) / 10, method, detail };
+    gviStatus('');
+    showGviResult();
+    showToast(`GVI computed: ${gviState.value}%`, 'success');
+  } catch (err) {
+    gviStatus('Error: ' + err.message);
+    showToast('GVI calculation failed', 'error');
+  }
+}
+
+// ================================================================
+// Google Sheets (silent, fire-and-forget; one tab per module)
+// ================================================================
+function flattenForExport(obs) {
+  const flat = {
+    module: obs.module, timestamp: obs.timestamp, observer: obs.observer,
+    confidence: obs.confidence, notes: obs.notes,
+    lat: obs.lat, lng: obs.lng, heading: obs.heading, pitch: obs.pitch, zoom: obs.zoom,
+    imageDate: obs.imageDate, backupDate: obs.backupDate, streetAddress: obs.streetAddress,
+  };
+  for (const [k, v] of Object.entries(obs.data || {})) {
+    flat[k] = Array.isArray(v) ? v.join('; ') : v;
+  }
+  return flat;
+}
+
+function sendToSheet(obs) {
+  const url = window.SHEETS_WEBHOOK_URL;
+  if (!url || url === 'https://script.google.com/macros/s/AKfycbySEzVZDAFZwsRejLIk3cir6g1yApaKqYv8n-XWMHQITq-R0F2sImDuZjLOaGJaFYTI/exec') return;
+  try {
+    const params = new URLSearchParams({ data: JSON.stringify(flattenForExport(obs)) });
+    fetch(`${url}?${params.toString()}`, { mode: 'no-cors' }).catch(() => {});
+  } catch (e) { /* silent */ }
+}
+
+// ================================================================
+// UI helpers
+// ================================================================
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('tab-' + name).classList.add('active');
+}
+
+function setConfidence(v) {
+  document.getElementById('confidence-value').value = v;
+  document.querySelectorAll('#confidence-row .scale-btn').forEach((b, i) => {
+    b.classList.toggle('active', i + 1 <= v);
+  });
+}
+
+function setCurrentDateDisplay(label) {
+  document.getElementById('currentImageryDate').value = label || '';
+}
+
+function setAddressDisplay(text) {
+  currentAddress = text;
+  const el = document.getElementById('current-address-display');
+  el.textContent = text || '';
+  el.style.display = text ? 'block' : 'none';
+}
+
+function updateObservationCount() {
+  const n = observations.length;
+  document.getElementById('obs-badge').textContent = n;
+  document.getElementById('obs-count').textContent = n;
+}
+
+// ================================================================
+// Form — save / edit / delete / reset
+// ================================================================
+function resetForm() {
+  renderForm(); // rebuild module fields fresh
+  document.getElementById('core-notes').value = '';
+  document.getElementById('backupImageryDate').value = '';
+  setConfidence(3);
+  editingId = null;
+  document.getElementById('edit-bar').classList.remove('visible');
+  const btn = document.getElementById('save-btn');
+  btn.className = 'btn btn-primary btn-full';
+  btn.innerHTML = 'Record <kbd>Ctrl+↵</kbd>';
+}
+
+function cancelEdit() {
+  resetForm();
+  showToast('Edit cancelled', 'info');
+}
+
+function saveObservation() {
+  const mod  = getModule(currentModuleId);
+  const data = collectFields(mod);
+
+  const err = validateRequired(mod, data);
+  if (err) { showToast(err, 'error'); return; }
+
+  const pov = panorama ? panorama.getPov()      : { heading: 0, pitch: 0 };
+  const pos = panorama ? panorama.getPosition() : null;
+  const zoom = panorama && panorama.getZoom ? Math.round((panorama.getZoom() || 0) * 100) / 100 : '';
+
+  const obs = {
+    id:        editingId || Date.now().toString(),
+    timestamp: editingId
+                 ? (observations.find(o => o.id === editingId)?.timestamp || new Date().toISOString())
+                 : new Date().toISOString(),
+    module:    mod.id,
+    observer:  document.getElementById('observer').value.trim(),
+    confidence: parseInt(document.getElementById('confidence-value').value) || 3,
+    notes:     document.getElementById('core-notes').value.trim(),
+    lat:       pos ? pos.lat().toFixed(6) : '',
+    lng:       pos ? pos.lng().toFixed(6) : '',
+    heading:   Math.round(pov.heading),
+    pitch:     Math.round(pov.pitch),
+    zoom:      zoom,
+    imageDate: document.getElementById('currentImageryDate').value,
+    backupDate: document.getElementById('backupImageryDate').value.trim(),
+    streetAddress: currentAddress,
+    data,
+  };
+
+  if (editingId) {
+    const idx = observations.findIndex(o => o.id === editingId);
+    if (idx >= 0) observations[idx] = obs;
+    showToast('Observation updated ✓', 'success');
+  } else {
+    observations.push(obs);
+    sendToSheet(obs);
+    showToast('Observation recorded ✓', 'success');
+  }
+
+  persistObs();
+  renderObsList();
+  updateObservationCount();
+  resetForm();
+}
+
+function editObservation(id) {
+  const obs = observations.find(o => o.id === id);
+  if (!obs) return;
+
+  // Switch to the observation's module first
+  if (obs.module !== currentModuleId) {
+    currentModuleId = obs.module;
+    renderModuleSelect();
+    renderForm();
+  }
+
+  editingId = id;
+  const mod = getModule(obs.module);
+  setFields(mod, obs.data || {});
+  document.getElementById('core-notes').value          = obs.notes      || '';
+  document.getElementById('currentImageryDate').value  = obs.imageDate  || '';
+  document.getElementById('backupImageryDate').value   = obs.backupDate || '';
+  setConfidence(obs.confidence || 3);
+  document.getElementById('edit-bar').classList.add('visible');
+  const btn = document.getElementById('save-btn');
+  btn.className = 'btn btn-primary btn-full editing';
+  btn.innerHTML = 'Update Observation <kbd>Ctrl+↵</kbd>';
+  document.getElementById('tab-btn-form').click();
+  const sb = document.querySelector('.sidebar-body');
+  if (sb && typeof sb.scrollTo === 'function') sb.scrollTo({ top: 0, behavior: 'smooth' });
+  showToast('Editing — update fields and click Update', 'warning');
+}
+
+function deleteObservation(id) {
+  const obs = observations.find(o => o.id === id);
+  const label = obs ? (obsSummary(obs)[0] || 'observation') : 'observation';
+  if (!confirm(`Delete "${label}"? This cannot be undone.`)) return;
+  observations = observations.filter(o => o.id !== id);
+  persistObs();
+  renderObsList();
+  updateObservationCount();
+  if (editingId === id) resetForm();
+  showToast('Observation deleted', 'info');
+}
+
+function clearAllData() {
+  if (!observations.length) { showToast('Nothing to clear', 'info'); return; }
+  if (!confirm(`Delete all ${observations.length} observation(s)? This cannot be undone.`)) return;
+  observations = [];
+  persistObs();
+  resetForm();
+  renderObsList();
+  updateObservationCount();
+  showToast('All data cleared', 'info');
+}
+
+// ================================================================
+// Render observations list
+// ================================================================
+function obsSummary(obs) {
+  const d = obs.data || {};
+  switch (obs.module) {
+    case 'urban-change':   return [d.feature, d.featurechange];
+    case 'gvi':            return ['GVI ' + (d.gviManual !== '' && d.gviManual != null ? d.gviManual + '% (manual)' : '—')
+                                   + (d.gviAuto !== '' && d.gviAuto != null ? ' · ' + d.gviAuto + '% (computed)' : ''),
+                                  Array.isArray(d.vegTypes) ? d.vegTypes.join(', ') : (d.vegTypes || '')];
+    case 'perception':     return ['Safe ' + (d.safe || '—') + ' · Lively ' + (d.lively || '—') + ' · Beautiful ' + (d.beautiful || '—'),
+                                  'Order ' + (d.order || '—') + ' · Maintained ' + (d.maintenance || '—') + ' · Inviting ' + (d.inviting || '—')];
+    case 'scene-analysis': return [d.focalObject, [d.emplacement, d.timescene ? 'Timescene: ' + d.timescene : '']
+                                  .filter(Boolean).join(' · ')];
+    default: {
+      const firstKeys = Object.keys(d).slice(0, 2);
+      return [firstKeys.map(k => d[k]).filter(Boolean).join(' · ') || '(custom module)', ''];
+    }
+  }
+}
+
+function renderObsList() {
+  const el = document.getElementById('obs-list');
+  if (!observations.length) {
+    el.innerHTML = '<div class="obs-empty">No observations yet</div>';
+    return;
+  }
+  el.innerHTML = [...observations].reverse().map(obs => {
+    const mod = getModule(obs.module);
+    const [line1, line2] = obsSummary(obs);
+    return `
+    <div class="obs-item">
+      <span class="obs-module">${esc(mod.name)}</span>
+      <div class="obs-feature">${esc(line1 || '—')}</div>
+      <div class="obs-change">${esc(line2 || '')}</div>
+      <div class="obs-meta">
+        ${esc(obs.imageDate || '—')} · conf. ${obs.confidence || '—'}/5${obs.observer ? ' · ' + esc(obs.observer) : ''}
+      </div>
+      <div class="obs-meta">${esc(obs.streetAddress || '—')}</div>
+      <div class="obs-actions">
+        <button class="btn btn-outline" style="font-size:0.72rem;padding:0.22rem 0.45rem"
+          onclick="editObservation('${obs.id}')">Edit</button>
+        <button class="btn btn-danger"
+          onclick="deleteObservation('${obs.id}')">Delete</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ================================================================
+// CSV export
+// ================================================================
+function csvRow(row) {
+  return row.map(v => {
+    const s = String(v == null ? '' : v);
+    return /[,"\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  }).join(',');
+}
+
+function downloadCsv(lines, name) {
+  const a    = document.createElement('a');
+  a.href     = 'data:text/csv;charset=utf-8,' + encodeURIComponent(lines.join('\n'));
+  a.download = name;
+  a.click();
+  showToast('CSV downloaded', 'success');
+}
+
+const CORE_COLS = ['module','timestamp','observer','confidence','notes',
+                   'lat','lng','heading','pitch','zoom','imageDate','backupDate','streetAddress'];
+
+function exportCsvModule() {
+  const mod  = getModule(currentModuleId);
+  const rows = observations.filter(o => o.module === mod.id);
+  if (!rows.length) { showToast(`No observations for “${mod.name}”`, 'error'); return; }
+
+  const schemaKeys = mod.fields.flatMap(f =>
+    f.type === 'gvi' ? ['gviAuto', 'gviMethod', 'gviDetail'] : [f.id]);
+  const extraKeys = [...new Set(rows.flatMap(o => Object.keys(o.data || {})))]
+    .filter(k => !schemaKeys.includes(k));
+  const cols = [...CORE_COLS, ...schemaKeys, ...extraKeys];
+
+  const lines = [csvRow(cols)];
+  for (const obs of rows) {
+    const flat = flattenForExport(obs);
+    lines.push(csvRow(cols.map(c => flat[c] ?? '')));
+  }
+  downloadCsv(lines, `virtual-audit-${mod.id}-${new Date().toISOString().slice(0,10)}.csv`);
+}
+
+function exportCsvAll() {
+  if (!observations.length) { showToast('No data to download', 'error'); return; }
+  const cols = [...CORE_COLS, 'data'];
+  const lines = [csvRow(cols)];
+  for (const obs of observations) {
+    const row = cols.map(c => c === 'data' ? JSON.stringify(obs.data || {}) : (obs[c] ?? ''));
+    lines.push(csvRow(row));
+  }
+  downloadCsv(lines, `virtual-audit-all-${new Date().toISOString().slice(0,10)}.csv`);
+}
+
+// ================================================================
+// Module manager (custom module builder)
+// ================================================================
+const BUILDER_FIELD_TYPES = [
+  ['text',     'Text'],
+  ['textarea', 'Long text'],
+  ['number',   'Number'],
+  ['select',   'Dropdown'],
+  ['radio',    'Radio choice'],
+  ['slider',   'Slider (0–100%)'],
+  ['likert',   'Rating 1–5'],
+  ['bipolar',  'Bipolar scale 1–5'],
+  ['checks',   'Checklist'],
+  ['tags',     'Tag chips'],
+];
+
+let builderFields = [];
+
+function openManager() {
+  document.getElementById('modal-backdrop').classList.add('open');
+  renderManagerList();
+}
+function closeManager() {
+  document.getElementById('modal-backdrop').classList.remove('open');
+  renderModuleSelect();
+  renderForm();
+}
+
+function renderManagerList() {
+  document.getElementById('modal-title').textContent = 'Manage Audit Modules';
+  const customs = loadCustomModules();
+  const body = document.getElementById('modal-body');
+  body.innerHTML = `
+    <div style="font-size:0.74rem;color:var(--text-muted)">
+      Built-in modules can be duplicated as a starting point for your own instrument.
+      Custom modules are stored in this browser and can be exported/imported as JSON to share.
+    </div>
+    ${BUILTIN_MODULES.map(m => `
+      <div class="mod-list-item">
+        <div>
+          <div class="mod-name">${esc(m.name)} <span class="mod-badge">built-in</span></div>
+          <div class="mod-sub">${esc(m.description || '')}</div>
+        </div>
+        <div class="mod-actions">
+          <button class="btn btn-outline btn-sm" onclick="duplicateModule('${escAttr(m.id)}')">Duplicate</button>
+        </div>
+      </div>`).join('')}
+    ${customs.map(m => `
+      <div class="mod-list-item">
+        <div>
+          <div class="mod-name">${esc(m.name)} <span class="mod-badge" style="background:#fdf3e6;color:#b06d10">custom</span></div>
+          <div class="mod-sub">${esc(m.description || '')} · ${m.fields.length} fields</div>
+        </div>
+        <div class="mod-actions">
+          <button class="btn btn-outline btn-sm" onclick="openBuilder('${escAttr(m.id)}')">Edit</button>
+          <button class="btn btn-outline btn-sm" onclick="exportModule('${escAttr(m.id)}')">Export</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteCustomModule('${escAttr(m.id)}')">Delete</button>
+        </div>
+      </div>`).join('')}
+    <div style="display:flex;gap:0.4rem">
+      <button class="btn btn-primary" style="flex:1" onclick="openBuilder(null)">+ New Module</button>
+      <button class="btn btn-outline" style="flex:1" onclick="importModulePrompt()">Import JSON</button>
+    </div>`;
+}
+
+function slugify(name) {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'module';
+}
+
+function duplicateModule(id) {
+  const src = getModule(id);
+  const copy = JSON.parse(JSON.stringify(src));
+  copy.name = src.name + ' (copy)';
+  copy.id   = uniqueModuleId(slugify(copy.name));
+  const customs = loadCustomModules();
+  customs.push(copy);
+  saveCustomModules(customs);
+  renderManagerList();
+}
+
+function uniqueModuleId(base) {
+  const ids = getAllModules().map(m => m.id);
+  let id = base, n = 2;
+  while (ids.includes(id)) id = base + '-' + (n++);
+  return id;
+}
+
+function deleteCustomModule(id) {
+  if (!confirm('Delete this custom module? Its saved observations are kept.')) return;
+  saveCustomModules(loadCustomModules().filter(m => m.id !== id));
+  if (currentModuleId === id) currentModuleId = 'urban-change';
+  renderManagerList();
+}
+
+function exportModule(id) {
+  const mod = loadCustomModules().find(m => m.id === id);
+  if (!mod) return;
+  const a = document.createElement('a');
+  a.href = 'data:application/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(mod, null, 2));
+  a.download = `virtual-audit-module-${mod.id}.json`;
+  a.click();
+}
+
+function importModulePrompt() {
+  const json = prompt('Paste module JSON:');
+  if (!json) return;
+  try {
+    const mod = JSON.parse(json);
+    if (!mod.name || !Array.isArray(mod.fields)) throw new Error('Missing name or fields.');
+    mod.id = uniqueModuleId(mod.id ? slugify(mod.id) : slugify(mod.name));
+    const customs = loadCustomModules();
+    customs.push(mod);
+    saveCustomModules(customs);
+    renderManagerList();
+    showToast(`Module “${mod.name}” imported`, 'success');
+  } catch (e) {
+    alert('Invalid module JSON: ' + e.message);
+  }
+}
+
+// ── Builder (create / edit a custom module) ──────────────────────
+function openBuilder(id) {
+  const existing = id ? loadCustomModules().find(m => m.id === id) : null;
+  builderFields = existing ? JSON.parse(JSON.stringify(existing.fields)) : [];
+
+  document.getElementById('modal-title').textContent = existing ? 'Edit Module' : 'New Module';
+  const body = document.getElementById('modal-body');
+  body.innerHTML = `
+    <div>
+      <label>Module name <span class="req">*</span></label>
+      <input type="text" id="builder-name" value="${escAttr(existing ? existing.name : '')}" placeholder="e.g. Bikeability Audit" />
+    </div>
+    <div>
+      <label>Description</label>
+      <textarea id="builder-desc" rows="2" placeholder="What does this instrument measure?">${esc(existing ? existing.description || '' : '')}</textarea>
+    </div>
+    <div class="subheading">Fields</div>
+    <div id="builder-fields" style="display:flex;flex-direction:column;gap:0.45rem"></div>
+    <button class="btn btn-outline" onclick="addBuilderField()">+ Add Field</button>
+    <div style="display:flex;gap:0.4rem">
+      <button class="btn btn-primary" style="flex:1" onclick="saveBuilder('${escAttr(id || '')}')">Save Module</button>
+      <button class="btn btn-outline" style="flex:1" onclick="renderManagerList()">Cancel</button>
+    </div>`;
+  renderBuilderFields();
+}
+
+function addBuilderField() {
+  builderFields.push({ id: '', label: '', type: 'text', options: [], required: false, section: '' });
+  renderBuilderFields();
+}
+
+function removeBuilderField(i) {
+  builderFields.splice(i, 1);
+  renderBuilderFields();
+}
+
+function renderBuilderFields() {
+  const wrap = document.getElementById('builder-fields');
+  if (!wrap) return;
+  syncBuilderFields(); // keep current edits before re-render
+  wrap.innerHTML = builderFields.map((f, i) => `
+    <div class="field-editor-row" data-bidx="${i}">
+      <div>
+        <label>Field label <span class="req">*</span></label>
+        <input type="text" class="be-label" value="${escAttr(f.label)}" placeholder="e.g. Bike lane type" />
+      </div>
+      <div>
+        <label>Type</label>
+        <select class="be-type" onchange="syncBuilderFields();renderBuilderFields()">
+          ${BUILDER_FIELD_TYPES.map(([v, n]) => `<option value="${v}" ${f.type === v ? 'selected' : ''}>${n}</option>`).join('')}
+        </select>
+      </div>
+      <div class="full" style="${['select','radio','checks','tags','bipolar'].includes(f.type) ? '' : 'display:none'}">
+        <label>${f.type === 'bipolar' ? 'End labels (left | right)' : 'Options (comma-separated)'}</label>
+        <input type="text" class="be-options"
+          value="${escAttr((f.options || []).join(f.type === 'bipolar' ? ' | ' : ', '))}"
+          placeholder="${f.type === 'bipolar' ? 'e.g. Unsafe | Safe' : 'e.g. Painted lane, Protected lane, None'}" />
+      </div>
+      <div class="full">
+        <label>Section heading (optional — starts a new collapsible group above this field)</label>
+        <input type="text" class="be-section" value="${escAttr(f.section || '')}" placeholder="e.g. Infrastructure" />
+      </div>
+      <div class="fe-foot">
+        <label class="fe-req"><input type="checkbox" class="be-req" ${f.required ? 'checked' : ''}/> Required</label>
+        <button class="btn btn-danger btn-sm" onclick="removeBuilderField(${i})">Remove</button>
+      </div>
+    </div>`).join('');
+}
+
+function syncBuilderFields() {
+  document.querySelectorAll('#builder-fields .field-editor-row').forEach(row => {
+    const i = Number(row.dataset.bidx);
+    if (!builderFields[i]) return;
+    const f = builderFields[i];
+    f.label    = row.querySelector('.be-label').value;
+    f.type     = row.querySelector('.be-type').value;
+    f.section  = row.querySelector('.be-section').value.trim();
+    f.required = row.querySelector('.be-req').checked;
+    const optsInput = row.querySelector('.be-options');
+    if (optsInput) {
+      const sep = f.type === 'bipolar' ? '|' : ',';
+      f.options = optsInput.value.split(sep).map(s => s.trim()).filter(Boolean);
+    }
+  });
+}
+
+function saveBuilder(existingId) {
+  syncBuilderFields();
+  const name = document.getElementById('builder-name').value.trim();
+  if (!name) { alert('Module name is required.'); return; }
+  const valid = builderFields.filter(f => f.label.trim());
+  if (!valid.length) { alert('Add at least one field with a label.'); return; }
+
+  // Assign stable field ids from labels
+  const usedIds = new Set();
+  for (const f of valid) {
+    if (!f.id) f.id = slugify(f.label).replace(/-/g, '_');
+    let base = f.id, n = 2;
+    while (usedIds.has(f.id)) f.id = base + '_' + (n++);
+    usedIds.add(f.id);
+    if (f.type === 'slider') { f.min = 0; f.max = 100; f.step = 1; f.value = 0; }
+    if (!f.section) delete f.section;
+    if (!['select','radio','checks','tags','bipolar'].includes(f.type)) delete f.options;
+  }
+
+  const mod = {
+    id: existingId || uniqueModuleId(slugify(name)),
+    name,
+    description: document.getElementById('builder-desc').value.trim(),
+    fields: valid,
+  };
+
+  const customs = loadCustomModules();
+  const idx = customs.findIndex(m => m.id === existingId);
+  if (idx >= 0) customs[idx] = mod; else customs.push(mod);
+  saveCustomModules(customs);
+  currentModuleId = mod.id;
+  renderManagerList();
+  showToast(`Module “${mod.name}” saved`, 'success');
+}
+
+// ================================================================
+// Geocoding / navigation
+// ================================================================
+function debouncedReverseGeocode(latLng) {
+  clearTimeout(geocodeTimer);
+  geocodeTimer = setTimeout(() => {
+    geocoder.geocode({ location: latLng }, (results, status) => {
+      if (status === 'OK' && results[0]) setAddressDisplay(results[0].formatted_address);
+    });
+  }, 600);
+}
+
+function navigateTo(latLng) {
+  isUpdatingFromDate = true; // suppress position_changed → updateAvailableDates
+  panorama.setPosition(latLng);
+  miniMap.setCenter(latLng);
+  debouncedReverseGeocode(latLng);
+  updateAvailableDates(latLng);
+  setTimeout(() => { isUpdatingFromDate = false; }, 1500);
+}
+
+function searchAddress() {
+  const input = document.getElementById('address-input');
+  const val   = input.value.trim();
+  if (!val) return;
+
+  // Support bare "lat, lng" input
+  const coordMatch = val.match(/^(-?\d+\.?\d*)\s*,\s*(-?\d+\.?\d*)$/);
+  if (coordMatch) {
+    navigateTo(new google.maps.LatLng(parseFloat(coordMatch[1]), parseFloat(coordMatch[2])));
+    input.value = '';
+    return;
+  }
+
+  const btn = document.getElementById('search-btn');
+  btn.textContent = '…';
+  btn.disabled = true;
+  geocoder.geocode({ address: val }, (results, status) => {
+    btn.textContent = 'Go';
+    btn.disabled = false;
+    if (status === 'OK' && results[0]) {
+      navigateTo(results[0].geometry.location);
+      setAddressDisplay(results[0].formatted_address);
+      input.value = '';
+    } else {
+      showToast('Location not found', 'error');
+    }
+  });
+}
+
+// ================================================================
+// Date handling
+// (hybrid: uses time[].description where available, otherwise
+//  fetches each historical pano's imageDate — robust across
+//  Maps API versions where .description is unreliable)
+// ================================================================
+const MONTHS = ['January','February','March','April','May','June',
+                'July','August','September','October','November','December'];
+
+function fmtImageDate(imageDate) {
+  if (!imageDate) return null;
+  const m = String(imageDate).match(/(\d{4})-(\d{2})/);
+  return m ? MONTHS[parseInt(m[2]) - 1] + ' ' + m[1] : String(imageDate);
+}
+function labelOrdinal(label) {
+  // Accepts "May 2019" or "2019-05"
+  const ym = String(label || '').match(/(\d{4})-(\d{2})/);
+  if (ym) return parseInt(ym[1]) * 12 + parseInt(ym[2]);
+  const p = String(label || '').trim().split(' ');
+  const mi = MONTHS.indexOf(p[0]);
+  return parseInt(p[1] || 0) * 12 + (mi >= 0 ? mi + 1 : 0);
+}
+
+function dateSelectChangeHandler() {
+  const sel = document.getElementById('imageDate');
+  if (!sel.value) return;
+  const label = sel.options[sel.selectedIndex].text;
+  isUpdatingFromDate = true;
+  panorama.setPano(sel.value);
+  setCurrentDateDisplay(label);
+  setTimeout(() => { isUpdatingFromDate = false; }, 900);
+}
 
 function updateAvailableDates(location) {
-  _lastDateUpdatePos = location;           // record position for distance gating
-  const myId = ++_dateReqId; // invalidates any in-flight request
   const sel = document.getElementById('imageDate');
   sel.innerHTML = '<option value="">Loading dates…</option>';
-  document.getElementById('current-date-pill').textContent = '';
-
-  const MONTHS = ['January','February','March','April','May','June',
-                  'July','August','September','October','November','December'];
-
-  function fmtDate(imageDate) {
-    if (!imageDate) return null;
-    const m = String(imageDate).match(/(\d{4})-(\d{2})/);
-    return m ? MONTHS[parseInt(m[2]) - 1] + ' ' + m[1] : imageDate;
-  }
-  function dateOrdinal(imageDate) {
-    const m = String(imageDate || '').match(/(\d{4})-(\d{2})/);
-    return m ? parseInt(m[1]) * 12 + parseInt(m[2]) : 0;
-  }
+  setCurrentDateDisplay('');
 
   function populate(items) {
-    if (myId !== _dateReqId) return; // stale callback — a newer request is running
+    // items: [{ pano, label }]
     const valid = items
-      .filter(i => i.pano && i.imageDate)
-      .sort((a, b) => dateOrdinal(a.imageDate) - dateOrdinal(b.imageDate));
+      .filter(i => i.pano && i.label)
+      .sort((a, b) => labelOrdinal(a.label) - labelOrdinal(b.label));
+
     if (!valid.length) {
       sel.innerHTML = '<option value="">No dated panoramas found</option>';
       return;
     }
     sel.innerHTML = valid
-      .map(i => `<option value="${i.pano}">${fmtDate(i.imageDate)}</option>`)
+      .map(i => `<option value="${i.pano}">${esc(i.label)}</option>`)
       .join('');
-    // Re-select previously chosen date if available, otherwise latest
-    let bestIdx = valid.length - 1;
-    if (selectedDateLabel) {
-      for (let i = 0; i < sel.options.length; i++) {
-        if (sel.options[i].text === selectedDateLabel) { bestIdx = i; break; }
-      }
-    }
-    sel.selectedIndex = bestIdx;
-    const chosen = valid[bestIdx];
-    setCurrentDateDisplay(fmtDate(chosen.imageDate));
-    // Only navigate if pano is actually different (avoids feedback loops)
-    if (panorama.getPano() !== chosen.pano) {
-      isChangingDate = true;
-      panorama.setPano(chosen.pano);
-      setTimeout(() => { isChangingDate = false; }, 100);
-    }
+    sel.selectedIndex = valid.length - 1;
+
+    const latest = valid[valid.length - 1];
+    isUpdatingFromDate = true;
+    panorama.setPano(latest.pano);
+    setCurrentDateDisplay(latest.label);
+    setTimeout(() => { isUpdatingFromDate = false; }, 900);
   }
 
   // Step 1: location → current pano ID
   streetViewService.getPanorama(
     { location, radius: 50, source: google.maps.StreetViewSource.OUTDOOR },
     (locData, locStatus) => {
-      if (myId !== _dateReqId) return; // stale
       if (locStatus !== google.maps.StreetViewStatus.OK) {
         sel.innerHTML = '<option value="">No Street View at this location</option>';
         return;
       }
       const currentPanoId = locData.location.pano;
 
-      // Step 2: current pano ID → time[] (list of historical pano IDs)
+      // Step 2: current pano ID → time[] (historical pano IDs)
       streetViewService.getPanorama({ pano: currentPanoId }, (data, status) => {
         if (status !== google.maps.StreetViewStatus.OK || !data) {
-          populate([{ pano: currentPanoId, imageDate: locData.imageDate }]);
+          populate([{ pano: currentPanoId, label: fmtImageDate(locData.imageDate) || 'Current' }]);
           return;
         }
         const times = data.time || [];
         if (!times.length) {
-          populate([{ pano: currentPanoId, imageDate: data.imageDate }]);
+          populate([{ pano: currentPanoId, label: fmtImageDate(data.imageDate) || 'Current' }]);
           return;
         }
 
-        // Step 3: fetch each historical pano individually for its .imageDate ("YYYY-MM")
-        // .description is unreliable across API versions — use .imageDate instead
+        // Fast path: time[] entries carry usable descriptions ("May 2019")
+        if (times.every(t => t.pano && t.description)) {
+          populate(times.map(t => ({ pano: t.pano, label: t.description })));
+          return;
+        }
+
+        // Robust path: fetch each historical pano's imageDate ("YYYY-MM")
         const results = [];
         let pending = times.length;
         times.forEach(t => {
@@ -845,7 +2073,7 @@ function updateAvailableDates(location) {
           if (!pid) { if (!--pending) populate(results); return; }
           streetViewService.getPanorama({ pano: pid }, (d, s) => {
             if (s === google.maps.StreetViewStatus.OK && d?.imageDate) {
-              results.push({ pano: pid, imageDate: d.imageDate });
+              results.push({ pano: pid, label: fmtImageDate(d.imageDate) });
             }
             if (!--pending) populate(results);
           });
@@ -855,20 +2083,8 @@ function updateAvailableDates(location) {
   );
 }
 
-function dateSelectChangeHandler() {
-  const sel = document.getElementById('imageDate');
-  if (!sel.value) return;
-  selectedDateLabel = sel.options[sel.selectedIndex].text;
-  if (sel.value !== panorama.getPano()) {
-    isChangingDate = true;
-    panorama.setPano(sel.value);
-    setCurrentDateDisplay(selectedDateLabel);
-    setTimeout(() => { isChangingDate = false; }, 100);
-  }
-}
-
 function syncDateSelector() {
-  if (isChangingDate) return;
+  if (isUpdatingFromDate) return;
   const panoId = panorama.getPano();
   const sel    = document.getElementById('imageDate');
   for (let i = 0; i < sel.options.length; i++) {
@@ -880,369 +2096,123 @@ function syncDateSelector() {
   }
 }
 
-function setCurrentDateDisplay(label) {
-  document.getElementById('currentImageryDate').value = label || '';
-  document.getElementById('current-date-pill').textContent = label || '';
-}
-
 // ================================================================
-// LOCATION SEARCH
+// Observer persistence
 // ================================================================
-function searchLocation() {
-  const input   = document.getElementById('address-input');
-  const address = input.value.trim();
-  if (!address) return;
-
-  const btn = document.getElementById('search-btn');
-  btn.textContent = '⧗';
-  btn.disabled = true;
-
-  geocoder.geocode({ address }, (results, status) => {
-    btn.textContent = 'Go';
-    btn.disabled = false;
-    if (status === 'OK' && results[0]) {
-      const loc = results[0].geometry.location;
-      // Use StreetViewService with OUTDOOR filter to avoid user photospheres
-      streetViewService.getPanorama(
-        { location: loc, radius: 100, source: google.maps.StreetViewSource.OUTDOOR },
-        (data, svStatus) => {
-          if (svStatus === google.maps.StreetViewStatus.OK && data.location) {
-            // Block position_changed during the entire navigation sequence
-            isChangingDate = true;
-            isUpdatingPanorama = true;
-            panorama.setPano(data.location.pano);
-            map.setCenter(data.location.latLng);
-            map.setZoom(17);
-            selectedDateLabel = null; // new location — reset date preference
-            updateAvailableDates(data.location.latLng);
-            // Keep guards up long enough for position_changed to settle
-            setTimeout(() => { isChangingDate = false; isUpdatingPanorama = false; }, 600);
-          } else {
-            // No outdoor pano nearby — fall back to unfiltered
-            panorama.setPosition(loc);
-            map.setCenter(loc);
-            map.setZoom(17);
-            selectedDateLabel = null;
-            updateAvailableDates(loc);
-          }
-          input.value = '';
-        }
-      );
-    } else {
-      showToast('Location not found', 'error');
-    }
-  });
-}
-
-function debouncedReverseGeocode(latLng) {
-  clearTimeout(geocodeTimer);
-  geocodeTimer = setTimeout(() => {
-    geocoder.geocode({ location: latLng }, (results, status) => {
-      if (status === 'OK' && results[0]) {
-        currentAddress = results[0].formatted_address;
-        const el = document.getElementById('current-address-display');
-        if (el) el.textContent = currentAddress;
-      }
-    });
-  }, 600);
-}
-
-// ================================================================
-// CONFIDENCE RATING
-// ================================================================
-function setConfidence(val) {
-  currentConfidence = val;
-  document.querySelectorAll('.conf-btn').forEach(btn => {
-    btn.classList.toggle('active', parseInt(btn.dataset.val) <= val);
-  });
-}
-
-// ================================================================
-// GOOGLE SHEETS LOGGING
-// ================================================================
-// Sends each new observation to your Apps Script web app.
-// Uses GET with JSON in a URL param — matches doGet(e) { e.parameter.data }.
-// Falls back gracefully — local CSV remains the observer's copy.
-function sendToSheet(obs) {
-  const url = window.SHEETS_WEBHOOK_URL;
-  if (!url || url.includes('PASTE_YOUR')) {
-    console.warn('[Sheets] SHEETS_WEBHOOK_URL not configured — skipping upload.');
-    return;
-  }
-  const payload = JSON.stringify(obs);
-  const fullUrl = `${url}?data=${encodeURIComponent(payload)}`;
-  console.log('[Sheets] Sending observation to:', url);
-
-  // Try with cors first (Apps Script supports it when deployed as "Anyone").
-  // This lets us see errors. Fall back to no-cors if blocked.
-  fetch(fullUrl, { method: 'GET', redirect: 'follow' })
-    .then(resp => {
-      if (resp.ok || resp.type === 'opaque') {
-        console.log('[Sheets] Observation sent successfully.');
-      } else {
-        console.warn('[Sheets] Server responded with status:', resp.status);
-      }
-      return resp.text().catch(() => '');
-    })
-    .then(body => { if (body) console.log('[Sheets] Response:', body); })
-    .catch(err => {
-      console.warn('[Sheets] CORS fetch failed, retrying with no-cors:', err.message);
-      fetch(fullUrl, { mode: 'no-cors' }).catch(() => {});
-    });
-}
-
-// ================================================================
-// RECORD OBSERVATION
-// ================================================================
-function recordObservation() {
-  // Validate required fields
-  let valid = true;
-  ['feature', 'featurechange'].forEach(id => {
-    const el = document.getElementById(id);
-    if (!el.value) { el.classList.add('error'); valid = false; }
-    else           { el.classList.remove('error'); }
-  });
-  if (!valid) {
-    showToast('Feature type and change type are required', 'error');
-    return;
-  }
-
-  const pos = panorama.getPosition();
-  const pov = panorama.getPov();
-
-  const obs = {
-    timestamp:    new Date().toLocaleString(),
-    observer:     document.getElementById('observer').value.trim(),
-    feature:      document.getElementById('feature').value,
-    featurechange:document.getElementById('featurechange').value,
-    estyear:      document.getElementById('estyear').value.trim(),
-    explanation:  document.getElementById('explanation').value.trim(),
-    confidence:   currentConfidence,
-    notes:        document.getElementById('notes').value.trim(),
-    lat:          pos ? pos.lat() : '',
-    lng:          pos ? pos.lng() : '',
-    heading:      Math.round(pov.heading),
-    pitch:        Math.round(pov.pitch),
-    imageDate:    document.getElementById('currentImageryDate').value,
-    backupDate:   document.getElementById('backupImageryDate').value.trim(),
-    streetAddress:currentAddress,
-  };
-
-  if (editingIndex !== null) {
-    observations[editingIndex] = obs;
-    showToast('Observation updated ✓', 'success');
-  } else {
-    observations.push(obs);
-    sendToSheet(obs); // Log to master Google Sheet (new observations only)
-    showToast('Observation recorded ✓', 'success');
-  }
-
-  saveObservations();
-  resetForm();
-  renderObservationLog();
-  updateObservationCount();
-}
-
-// ================================================================
-// FORM HELPERS
-// ================================================================
-function resetForm() {
-  ['estyear','explanation','notes','backupImageryDate'].forEach(id => {
-    document.getElementById(id).value = '';
-  });
-  ['feature','featurechange'].forEach(id => {
-    document.getElementById(id).value = '';
-    document.getElementById(id).classList.remove('error');
-  });
-  setConfidence(3);
-  editingIndex = null;
-  document.getElementById('edit-bar').classList.remove('visible');
-  const btn = document.getElementById('record-btn');
-  btn.className = 'btn btn-primary btn-block';
-  btn.innerHTML = 'Record <kbd>Ctrl+↵</kbd>';
-}
-
-function cancelEdit() {
-  resetForm();
-  showToast('Edit cancelled', 'info');
-}
-
-// ================================================================
-// OBSERVATION LOG
-// ================================================================
-function renderObservationLog() {
-  const log = document.getElementById('obs-log');
-  if (!observations.length) {
-    log.innerHTML = '<div class="empty-log">No observations yet</div>';
-    return;
-  }
-  log.innerHTML = observations.map((obs, i) => `
-    <div class="obs-item">
-      <div class="obs-item-top">
-        <span class="obs-feature">${esc(obs.feature)}</span>
-        <span class="obs-actions">
-          <button class="obs-btn" onclick="editObservation(${i})">Edit</button>
-          <button class="obs-btn del" onclick="deleteObservation(${i})" title="Delete">✕</button>
-        </span>
-      </div>
-      <div class="obs-change">${esc(obs.featurechange || '—')}</div>
-      <div class="obs-meta">
-        ${esc(obs.imageDate || '—')}${obs.estyear ? ' · est. ' + esc(obs.estyear) : ''} · conf. ${obs.confidence || '—'}/5${obs.observer ? ' · ' + esc(obs.observer) : ''}
-      </div>
-      <div class="obs-meta">${esc(obs.streetAddress || '—')}</div>
-    </div>
-  `).join('');
-}
-
-function esc(str) {
-  return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
-
-function editObservation(i) {
-  const obs = observations[i];
-  editingIndex = i;
-
-  document.getElementById('observer').value           = obs.observer || '';
-  document.getElementById('feature').value            = obs.feature || '';
-  document.getElementById('featurechange').value      = obs.featurechange || '';
-  document.getElementById('estyear').value            = obs.estyear || '';
-  document.getElementById('explanation').value        = obs.explanation || '';
-  document.getElementById('notes').value              = obs.notes || '';
-  document.getElementById('currentImageryDate').value = obs.imageDate || '';
-  document.getElementById('backupImageryDate').value  = obs.backupDate || '';
-  setConfidence(obs.confidence || 3);
-
-  document.getElementById('edit-bar').classList.add('visible');
-  const btn = document.getElementById('record-btn');
-  btn.className = 'btn btn-primary btn-block editing';
-  btn.innerHTML = 'Update Observation <kbd>Ctrl+↵</kbd>';
-
-  // Scroll to form
-  document.querySelector('.sidebar-scroll').scrollTo({ top: 0, behavior: 'smooth' });
-  showToast('Editing — update fields and click Update', 'warning');
-}
-
-function deleteObservation(i) {
-  const label = observations[i].feature || 'observation';
-  if (confirm(`Delete "${label}"? This cannot be undone.`)) {
-    if (editingIndex === i) resetForm();
-    else if (editingIndex !== null && editingIndex > i) editingIndex--;
-    observations.splice(i, 1);
-    saveObservations();
-    renderObservationLog();
-    updateObservationCount();
-    showToast('Observation deleted', 'info');
-  }
-}
-
-// ================================================================
-// DOWNLOAD
-// ================================================================
-function downloadDataset() {
-  if (!observations.length) { showToast('No data to download', 'error'); return; }
-
-  const cols = [
-    'timestamp','observer','feature','featurechange',
-    'estyear','explanation','confidence','notes',
-    'lat','lng','heading','pitch','imageDate','backupDate','streetAddress'
-  ];
-  const csvRow = row => row.map(v => {
-    const s = String(v ?? '');
-    return /[,"\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-  }).join(',');
-
-  const csv = [csvRow(cols), ...observations.map(o => csvRow(cols.map(c => o[c])))].join('\n');
-  const a   = document.createElement('a');
-  a.href     = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
-  a.download = `virtual-audit_${new Date().toISOString().slice(0,10)}.csv`;
-  a.click();
-  showToast('CSV downloaded', 'success');
-}
-
-// ================================================================
-// CLEAR ALL
-// ================================================================
-function clearAllData() {
-  if (!observations.length) { showToast('Nothing to clear', 'info'); return; }
-  if (confirm(`Delete all ${observations.length} observation(s)? This cannot be undone.`)) {
-    observations = [];
-    saveObservations();
-    resetForm();
-    renderObservationLog();
-    updateObservationCount();
-    showToast('All data cleared', 'info');
-  }
-}
-
-// ================================================================
-// PERSISTENCE
-// ================================================================
-const STORAGE_KEY  = 'virtualAuditObs_v2';
-const OBSERVER_KEY = 'virtualAuditObserver';
-
-function saveObservations() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(observations));
-}
-
-function loadObservations() {
-  try {
-    // Try new key first, then legacy key used by original tool
-    const src = localStorage.getItem(STORAGE_KEY)
-             || localStorage.getItem('virtualAuditObservations');
-    if (src) observations = JSON.parse(src);
-  } catch { observations = []; }
-  renderObservationLog();
-  updateObservationCount();
-}
-
 function loadSavedObserver() {
   const saved = localStorage.getItem(OBSERVER_KEY);
   if (saved) document.getElementById('observer').value = saved;
   document.getElementById('observer').addEventListener('blur', e => {
-    if (e.target.value.trim()) localStorage.setItem(OBSERVER_KEY, e.target.value.trim());
+    if (e.target.value.trim()) {
+      try { localStorage.setItem(OBSERVER_KEY, e.target.value.trim()); } catch (err) {}
+    }
   });
 }
 
-function updateObservationCount() {
-  const n = observations.length;
-  document.getElementById('obs-badge').textContent = n;
-  document.getElementById('obs-count').textContent = n;
-}
-
 // ================================================================
-// TOASTS
-// ================================================================
-function showToast(msg, type = 'info') {
-  const div = document.createElement('div');
-  div.className = `toast ${type}`;
-  div.textContent = msg;
-  document.getElementById('toasts').appendChild(div);
-  setTimeout(() => div.remove(), 2800);
-}
-
-// ================================================================
-// KEYBOARD SHORTCUTS
+// Keyboard shortcuts
 // ================================================================
 document.addEventListener('keydown', e => {
   // Ctrl/Cmd + Enter → Record / Update
   if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
     e.preventDefault();
-    recordObservation();
+    saveObservation();
   }
-  // Escape ? Cancel edit
-  if (e.key === 'Escape' && editingIndex !== null) {
-    cancelEdit();
+  // Escape → Cancel edit / close modal
+  if (e.key === 'Escape') {
+    if (document.getElementById('modal-backdrop').classList.contains('open')) closeManager();
+    else if (editingId !== null) cancelEdit();
   }
 });
 
 // ================================================================
-// BOOTSTRAP GOOGLE MAPS
+// Google Maps init (called by Maps API callback)
 // ================================================================
-(function () {
-  const key = window.MAPS_API_KEY || 'AIzaSyBNVN2mixyttHxNeZjX63A96vEMtx0Nmio';
+function initMap() {
+  geocoder          = new google.maps.Geocoder();
+  streetViewService = new google.maps.StreetViewService();
+
+  const defaultLatLng = new google.maps.LatLng(49.8875, -119.4961); // Bernard Ave, Kelowna
+
+  panorama = new google.maps.StreetViewPanorama(
+    document.getElementById('pano'),
+    {
+      position:              defaultLatLng,
+      pov:                   { heading: 165, pitch: 0 },
+      zoom:                  1,
+      addressControl:        false,
+      fullscreenControl:     false,
+      motionTracking:        false,
+      motionTrackingControl: false,
+      imageDateControl:      false,
+    }
+  );
+
+  miniMap = new google.maps.Map(document.getElementById('map'), {
+    center:             defaultLatLng,
+    zoom:               17,
+    disableDefaultUI:   true,
+    zoomControl:        true,
+    streetViewControl:  false,
+    mapTypeControl:     false,
+    fullscreenControl:  false,
+    zoomControlOptions: { position: google.maps.ControlPosition.LEFT_BOTTOM },
+  });
+  miniMap.setStreetView(panorama); // pegman tracks the panorama
+
+  // Hide loading overlay once pano tiles start rendering
+  panorama.addListener('tiles_loaded', () => {
+    document.getElementById('pano-loading').classList.add('hidden');
+  });
+
+  // Sync panorama position → mini-map; refresh dates (debounced) when
+  // the user navigates manually
+  panorama.addListener('position_changed', () => {
+    const pos = panorama.getPosition();
+    if (!pos) return;
+    miniMap.setCenter(pos);
+    if (!isUpdatingFromDate) {
+      debouncedReverseGeocode(pos);
+      clearTimeout(datesTimer);
+      datesTimer = setTimeout(() => updateAvailableDates(pos), 700);
+    }
+  });
+
+  // Track pano changes for date display (user navigating manually)
+  panorama.addListener('pano_changed', syncDateSelector);
+
+  // Click on mini-map → navigate panorama
+  miniMap.addListener('click', e => navigateTo(e.latLng));
+
+  // Enter key in address input
+  document.getElementById('address-input')
+    .addEventListener('keydown', e => { if (e.key === 'Enter') searchAddress(); });
+
+  // Initialise dates for default location
+  updateAvailableDates(defaultLatLng);
+  debouncedReverseGeocode(defaultLatLng);
+}
+
+// ================================================================
+// Boot (independent of Maps API)
+// ================================================================
+observations = loadObs();
+renderModuleSelect();
+renderForm();
+renderObsList();
+updateObservationCount();
+setConfidence(3);
+loadSavedObserver();
+
+// ================================================================
+// Load Google Maps API
+// ================================================================
+(function() {
   const s   = document.createElement('script');
-  s.src     = `https://maps.googleapis.com/maps/api/js?key=${key}&callback=initMap&v=weekly&loading=async`;
   s.async   = true;
+  s.src     = 'https://maps.googleapis.com/maps/api/js?key='
+              + encodeURIComponent(window.MAPS_API_KEY || '')
+              + '&callback=initMap&v=weekly&loading=async';
   s.onerror = () => showToast('Failed to load Google Maps — check your API key', 'error');
   document.head.appendChild(s);
 })();

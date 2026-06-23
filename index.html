@@ -607,14 +607,12 @@
               <input type="text" id="currentImageryDate" readonly placeholder="—" />
             </div>
             <div>
-              <label>Backup date</label>
-              <input type="text" id="backupImageryDate" placeholder="Optional" />
+              <label>Observer ID</label>
+              <input type="text" id="observer" placeholder="Your name or ID" />
             </div>
           </div>
-          <div>
-            <label>Observer ID</label>
-            <input type="text" id="observer" placeholder="Your name or ID" />
-          </div>
+          <!-- Backup date retained as hidden field (not shown to user) -->
+          <input type="hidden" id="backupImageryDate" value="" />
         </div>
       </div>
 
@@ -718,7 +716,7 @@ let isUpdatingFromDate = false;
 let currentAddress     = '';
 let editingId          = null;
 let currentModuleId    = 'urban-change';
-let gviState           = { value: '', method: '', detail: '' };
+let gviState           = { green: '', sky: '', built: '', mode: '', method: '', detail: '' };
 let geocodeTimer       = null;
 let datesTimer         = null;
 
@@ -739,11 +737,11 @@ const BUILTIN_MODULES = [
     name: 'Urban Change',
     description: 'Document physical changes to street features over time using historical Street View imagery.',
     fields: [
-      { id: 'feature', label: 'Feature type', type: 'select', required: true,
+      { id: 'feature', label: 'Feature type', type: 'selectx', required: true,
         options: ['Apartment/Condo', 'Office Building', 'House', 'Restaurant/Bar', 'Store',
                   'Construction Site', 'Street', 'Infrastructure', 'Public Space', 'Green Space',
                   'Cycling Infrastructure', 'Trees/Vegetation', 'Art/Mural', 'Other'] },
-      { id: 'featurechange', label: 'Change type', type: 'select', required: true,
+      { id: 'featurechange', label: 'Change type', type: 'selectx', required: true,
         options: ['Changed to new feature type', 'Changed but same feature type',
                   'Same feature, upgraded/renovated', 'Not applicable'] },
       { id: 'estyear',     label: 'Estimated year of change', type: 'number', min: 1900, max: 2035, placeholder: 'e.g. 2018' },
@@ -752,8 +750,8 @@ const BUILTIN_MODULES = [
   },
   {
     id: 'gvi',
-    name: 'Green View Index',
-    description: 'Estimate and computationally calculate the proportion of visible vegetation in the street view. Heading, pitch, and zoom are logged for replicability.',
+    name: 'Scene Composition Analysis',
+    description: 'Estimate and computationally measure the visual composition of the street scene — green (vegetation), sky, and built-environment view indices. Heading, pitch, and zoom are logged for replicability.',
     fields: [
       { section: 'Manual estimate',
         id: 'gviManual',  label: 'Visible vegetation (%)', type: 'slider', min: 0, max: 100, step: 1, value: 0 },
@@ -761,9 +759,9 @@ const BUILTIN_MODULES = [
         options: ['Trees', 'Shrubs', 'Grass / ground cover', 'Planters / green walls', 'Vines / climbers'] },
       { id: 'season',     label: 'Foliage condition', type: 'select',
         options: ['Leaf-on (summer)', 'Partial (spring/autumn)', 'Leaf-off (winter)', 'Unsure'] },
-      { section: 'Computational GVI',
+      { section: 'Computational view indices',
         id: 'gviAuto',    label: '', type: 'gvi',
-        help: 'Pixel method: green-pixel classification (Li et al. 2015 thresholds). ML method: DeepLab ADE20K segmentation (~9 MB model on first use). Requires the Street View Static API on your key.' },
+        help: 'Computes green / sky / built-environment view indices (built = 100 − green − sky, so the three sum to ~100%). Pixel method: fast colour heuristics. ML method: DeepLab ADE20K segmentation (~9 MB model on first use). "This view" uses the current heading; "4-heading avg" averages N/E/S/W; "360° total" pools pixels from a 6-view sphere (4 headings + up + down). Requires the Street View Static API on your key.' },
     ],
   },
   {
@@ -1069,8 +1067,9 @@ function fieldHtml(moduleId, f) {
           <label class="ml-toggle"><input type="checkbox" id="gvi-ml-toggle" />
             Use ML segmentation (DeepLab — slower, more accurate)</label>
           <div class="gvi-buttons">
-            <button type="button" class="btn btn-secondary btn-sm" onclick="calcGvi('view')">Calculate · this view</button>
-            <button type="button" class="btn btn-secondary btn-sm" onclick="calcGvi('point')">Calculate · 4-heading avg</button>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="calcGvi('view')">This view</button>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="calcGvi('avg')">4-heading avg</button>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="calcGvi('total360')">360° total</button>
           </div>
           <div class="gvi-status" id="gvi-status"></div>
           <div class="gvi-result" id="gvi-result"></div>
@@ -1150,7 +1149,7 @@ function renderForm() {
   root.style.display = 'flex';
   root.style.flexDirection = 'column';
   root.style.gap = '0.35rem';
-  gviState = { value: '', method: '', detail: '' };
+  gviState = { green: '', sky: '', built: '', mode: '', method: '', detail: '' };
 }
 
 // ================================================================
@@ -1187,7 +1186,11 @@ function collectFields(mod) {
         break;
       }
       case 'gvi': {
-        data.gviAuto   = gviState.value;
+        data.gviGreen  = gviState.green;
+        data.gviSky    = gviState.sky;
+        data.gviBuilt  = gviState.built;
+        data.gviAuto   = gviState.green;   // backward-compat: legacy GVI == green view index
+        data.gviMode   = gviState.mode;
         data.gviMethod = gviState.method;
         data.gviDetail = gviState.detail;
         break;
@@ -1247,12 +1250,18 @@ function setFields(mod, data) {
         break;
       }
       case 'gvi': {
+        const greenVal = (data.gviGreen != null && data.gviGreen !== '')
+          ? data.gviGreen
+          : (data.gviAuto != null ? data.gviAuto : '');
         gviState = {
-          value:  data.gviAuto   != null ? data.gviAuto   : '',
+          green:  greenVal,
+          sky:    data.gviSky   != null ? data.gviSky   : '',
+          built:  data.gviBuilt != null ? data.gviBuilt : '',
+          mode:   data.gviMode || '',
           method: data.gviMethod || '',
           detail: data.gviDetail || '',
         };
-        if (gviState.value !== '') showGviResult();
+        if (gviState.green !== '' && gviState.green != null) showGviResult();
         break;
       }
     }
@@ -1286,10 +1295,15 @@ function gviStatus(msg) {
 function showGviResult() {
   const el = document.getElementById('gvi-result');
   if (!el) return;
-  if (gviState.value === '') { el.style.display = 'none'; return; }
-  el.innerHTML = `Computed GVI: <strong>${gviState.value}%</strong>
-    <span style="color:var(--text-muted)"> · ${esc(gviState.method)}</span>
-    ${gviState.detail ? `<div style="font-size:0.66rem;color:var(--text-muted);margin-top:0.15rem">${esc(gviState.detail)}</div>` : ''}`;
+  if (gviState.green === '' || gviState.green == null) { el.style.display = 'none'; return; }
+  el.innerHTML = `
+    <div style="display:flex;gap:0.6rem;flex-wrap:wrap;align-items:baseline">
+      <span>Green&nbsp;<strong>${gviState.green}%</strong></span>
+      <span>Sky&nbsp;<strong>${gviState.sky}%</strong></span>
+      <span>Built&nbsp;<strong>${gviState.built}%</strong></span>
+    </div>
+    <div style="font-size:0.66rem;color:var(--text-muted);margin-top:0.18rem">${esc(gviState.method)}</div>
+    ${gviState.detail ? `<div style="font-size:0.63rem;color:var(--text-muted);margin-top:0.1rem">${esc(gviState.detail)}</div>` : ''}`;
   el.style.display = 'block';
 }
 
@@ -1332,41 +1346,63 @@ function fetchPanoImage(panoId, heading, pitch, fov) {
   });
 }
 
-// Pixel-based classification: green if G dominates R and B
-// (excess-green style threshold after Li et al. 2015)
-function greenFractionPixel(img) {
+// Pixel-based classification → returns raw pixel counts {green, sky, total}
+// so multiple views can be pooled by summing counts.
+//   green: excess-green threshold (after Li et al. 2015)
+//   sky:   bright blue OR bright near-white/grey (overcast) pixels
+function classifyPixelCounts(img) {
   const c = document.createElement('canvas');
   c.width = img.naturalWidth; c.height = img.naturalHeight;
   const ctx = c.getContext('2d');
   ctx.drawImage(img, 0, 0);
   const d = ctx.getImageData(0, 0, c.width, c.height).data;
-  let green = 0, total = 0;
+  let green = 0, sky = 0, total = 0;
   for (let i = 0; i < d.length; i += 4) {
     const r = d[i], g = d[i + 1], b = d[i + 2];
     total++;
-    if (g > r && g > b && (2 * g - r - b) >= 24 && g >= 40) green++;
+    if (g > r && g > b && (2 * g - r - b) >= 24 && g >= 40) {
+      green++;
+    } else if ((b >= 110 && b >= r && b >= g - 10) || (r >= 190 && g >= 190 && b >= 195)) {
+      sky++;
+    }
+    // everything else is treated as built environment (counted as the remainder)
   }
-  return 100 * green / total;
+  return { green, sky, total };
 }
 
-// ML classification: fraction of pixels segmented as vegetation classes
+// ML classification → returns pixel counts {green, sky, total} from DeepLab
+// ADE20K segmentation. Built environment is the remainder (total − green − sky).
 const VEG_LABEL_PATTERNS = ['tree', 'grass', 'plant', 'palm', 'flower', 'field', 'hedge'];
-async function greenFractionML(img) {
+const SKY_LABEL_PATTERNS = ['sky'];
+async function classifyMlCounts(img) {
   const model = await getMlModel();
   gviStatus('Segmenting image…');
   const out = await model.segment(img);
-  const vegColors = new Set();
+  const vegColors = new Set(), skyColors = new Set();
   for (const [label, rgb] of Object.entries(out.legend || {})) {
     const l = label.toLowerCase();
-    if (VEG_LABEL_PATTERNS.some(p => l.includes(p))) vegColors.add(rgb.join(','));
+    const key = rgb.join(',');
+    if (VEG_LABEL_PATTERNS.some(p => l.includes(p))) vegColors.add(key);
+    else if (SKY_LABEL_PATTERNS.some(p => l.includes(p))) skyColors.add(key);
   }
   const sm = out.segmentationMap;
-  let green = 0, total = 0;
+  let green = 0, sky = 0, total = 0;
   for (let i = 0; i < sm.length; i += 4) {
     total++;
-    if (vegColors.has(sm[i] + ',' + sm[i + 1] + ',' + sm[i + 2])) green++;
+    const key = sm[i] + ',' + sm[i + 1] + ',' + sm[i + 2];
+    if (vegColors.has(key)) green++;
+    else if (skyColors.has(key)) sky++;
   }
-  return 100 * green / total;
+  return { green, sky, total };
+}
+
+// Convert pooled counts → {green, sky, built} percentages (built = remainder)
+function pctFromCounts(counts) {
+  const t = counts.total || 1;
+  const green = 100 * counts.green / t;
+  const sky   = 100 * counts.sky   / t;
+  const built = Math.max(0, 100 - green - sky);
+  return { green, sky, built };
 }
 
 async function calcGvi(mode) {
@@ -1374,38 +1410,70 @@ async function calcGvi(mode) {
   const panoId = panorama.getPano();
   if (!panoId) { gviStatus('Navigate to a Street View location first.'); return; }
 
-  const useML  = document.getElementById('gvi-ml-toggle')?.checked;
-  const fn     = useML ? greenFractionML : (img) => Promise.resolve(greenFractionPixel(img));
-  const method = (useML ? 'ML segmentation (DeepLab ADE20K)' : 'Pixel classification')
-               + (mode === 'view' ? ' · current view' : ' · 4-heading point avg');
+  const useML      = document.getElementById('gvi-ml-toggle')?.checked;
+  const classify   = useML ? classifyMlCounts : (img) => Promise.resolve(classifyPixelCounts(img));
+  const methodBase = useML ? 'ML segmentation (DeepLab ADE20K)' : 'Pixel classification';
   const fov = 90;
+  const round1 = x => Math.round(x * 10) / 10;
 
   try {
-    let value, detail;
+    let res, detail, modeLabel;
+
     if (mode === 'view') {
       const pov = panorama.getPov();
       gviStatus('Fetching current view…');
       const img = await fetchPanoImage(panoId, pov.heading, pov.pitch, fov);
-      value  = await fn(img);
+      res = pctFromCounts(await classify(img));
+      modeLabel = 'current view';
       detail = `pano ${panoId} · heading ${Math.round(pov.heading)}° · pitch ${Math.round(pov.pitch)}° · fov ${fov}°`;
-    } else {
+
+    } else if (mode === 'avg') {
+      // Mean of each index across the 4 cardinal horizon views
       const headings = [0, 90, 180, 270];
-      const vals = [];
+      const per = [];
       for (const h of headings) {
         gviStatus(`Fetching heading ${h}°…`);
         const img = await fetchPanoImage(panoId, h, 0, fov);
-        vals.push(await fn(img));
+        per.push(pctFromCounts(await classify(img)));
       }
-      value  = vals.reduce((a, b) => a + b, 0) / vals.length;
-      detail = 'pano ' + panoId + ' · ' + headings.map((h, i) => `${h}°: ${vals[i].toFixed(1)}%`).join(' · ') + ` · pitch 0° · fov ${fov}°`;
+      res = {
+        green: per.reduce((a, p) => a + p.green, 0) / per.length,
+        sky:   per.reduce((a, p) => a + p.sky,   0) / per.length,
+        built: per.reduce((a, p) => a + p.built, 0) / per.length,
+      };
+      modeLabel = '4-heading avg';
+      detail = 'pano ' + panoId + ' · headings ' + headings.join('/') + '° · pitch 0° · fov ' + fov
+             + '° · green ' + headings.map((h, i) => per[i].green.toFixed(0) + '%').join('/');
+
+    } else { // total360 — full sphere, pixels pooled into one denominator
+      const samples = [
+        { h: 0, p: 0 }, { h: 90, p: 0 }, { h: 180, p: 0 }, { h: 270, p: 0 },
+        { h: 0, p: 90 }, { h: 0, p: -90 },
+      ];
+      const acc = { green: 0, sky: 0, total: 0 };
+      let n = 0;
+      for (const s of samples) {
+        n++;
+        gviStatus(`Fetching 360° sample ${n}/${samples.length}…`);
+        const img = await fetchPanoImage(panoId, s.h, s.p, fov);
+        const c = await classify(img);
+        acc.green += c.green; acc.sky += c.sky; acc.total += c.total;
+      }
+      res = pctFromCounts(acc);
+      modeLabel = '360° total (pooled)';
+      detail = 'pano ' + panoId + ' · 6-view sphere (N/E/S/W + up + down) · fov ' + fov + '° · pooled pixels';
     }
-    gviState = { value: Math.round(value * 10) / 10, method, detail };
+
+    gviState = {
+      green: round1(res.green), sky: round1(res.sky), built: round1(res.built),
+      mode:  modeLabel, method: methodBase + ' · ' + modeLabel, detail,
+    };
     gviStatus('');
     showGviResult();
-    showToast(`GVI computed: ${gviState.value}%`, 'success');
+    showToast(`Computed: green ${gviState.green}% · sky ${gviState.sky}% · built ${gviState.built}%`, 'success');
   } catch (err) {
     gviStatus('Error: ' + err.message);
-    showToast('GVI calculation failed', 'error');
+    showToast('Calculation failed', 'error');
   }
 }
 
@@ -1593,9 +1661,14 @@ function obsSummary(obs) {
   const d = obs.data || {};
   switch (obs.module) {
     case 'urban-change':   return [d.feature, d.featurechange];
-    case 'gvi':            return ['GVI ' + (d.gviManual !== '' && d.gviManual != null ? d.gviManual + '% (manual)' : '—')
-                                   + (d.gviAuto !== '' && d.gviAuto != null ? ' · ' + d.gviAuto + '% (computed)' : ''),
-                                  Array.isArray(d.vegTypes) ? d.vegTypes.join(', ') : (d.vegTypes || '')];
+    case 'gvi': {
+      const manual = (d.gviManual !== '' && d.gviManual != null) ? d.gviManual + '% veg (manual)' : '';
+      const comp = (d.gviGreen !== '' && d.gviGreen != null)
+        ? 'G ' + d.gviGreen + '% · S ' + d.gviSky + '% · B ' + d.gviBuilt + '%' + (d.gviMode ? ' (' + d.gviMode + ')' : '')
+        : ((d.gviAuto !== '' && d.gviAuto != null) ? d.gviAuto + '% (computed)' : '');
+      return [[manual, comp].filter(Boolean).join(' · ') || 'Scene composition',
+              Array.isArray(d.vegTypes) ? d.vegTypes.join(', ') : (d.vegTypes || '')];
+    }
     case 'perception':     return ['Safe ' + (d.safe || '—') + ' · Lively ' + (d.lively || '—') + ' · Beautiful ' + (d.beautiful || '—'),
                                   'Order ' + (d.order || '—') + ' · Maintained ' + (d.maintenance || '—') + ' · Inviting ' + (d.inviting || '—')];
     case 'scene-analysis': return [d.focalObject, [d.emplacement, d.timescene ? 'Timescene: ' + d.timescene : '']
@@ -1662,7 +1735,7 @@ function exportCsvModule() {
   if (!rows.length) { showToast(`No observations for “${mod.name}”`, 'error'); return; }
 
   const schemaKeys = mod.fields.flatMap(f =>
-    f.type === 'gvi' ? ['gviAuto', 'gviMethod', 'gviDetail'] : [f.id]);
+    f.type === 'gvi' ? ['gviGreen', 'gviSky', 'gviBuilt', 'gviAuto', 'gviMode', 'gviMethod', 'gviDetail'] : [f.id]);
   const extraKeys = [...new Set(rows.flatMap(o => Object.keys(o.data || {})))]
     .filter(k => !schemaKeys.includes(k));
   const cols = [...CORE_COLS, ...schemaKeys, ...extraKeys];

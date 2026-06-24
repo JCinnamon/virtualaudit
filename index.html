@@ -382,6 +382,15 @@
     .ml-toggle { display: flex; align-items: center; gap: 0.4rem; font-size: 0.7rem; color: var(--text-muted); cursor: pointer; font-weight: 400; margin: 0; }
     .ml-toggle input { width: auto; accent-color: var(--accent); }
 
+    /* ── GVI overlay previews ─────────────────────────────────── */
+    .gvi-preview { display: none; flex-direction: column; gap: 0.3rem; }
+    .gvi-legend { display: flex; gap: 0.55rem; flex-wrap: wrap; font-size: 0.62rem; color: var(--text-muted); }
+    .gvi-legend .sw { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 3px; vertical-align: middle; border: 1px solid rgba(0,0,0,0.12); }
+    .gvi-preview-row { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+    .gvi-preview-row figure { margin: 0; display: flex; flex-direction: column; gap: 0.1rem; }
+    .gvi-thumb { width: 100%; display: block; border-radius: 4px; border: 1px solid var(--border); }
+    .gvi-thumb-cap { font-size: 0.58rem; color: var(--text-muted); text-align: center; }
+
     /* ── Tabs ─────────────────────────────────────────────────── */
     .tab-bar { display: flex; border-bottom: 1px solid var(--border); }
     .tab-btn {
@@ -1073,6 +1082,7 @@ function fieldHtml(moduleId, f) {
           </div>
           <div class="gvi-status" id="gvi-status"></div>
           <div class="gvi-result" id="gvi-result"></div>
+          <div class="gvi-preview" id="gvi-preview"></div>
         </div>${help}`;
       return `<div>${inner}</div>`;
 
@@ -1350,31 +1360,46 @@ function fetchPanoImage(panoId, heading, pitch, fov) {
 // so multiple views can be pooled by summing counts.
 //   green: excess-green threshold (after Li et al. 2015)
 //   sky:   bright blue OR bright near-white/grey (overcast) pixels
-function classifyPixelCounts(img) {
+// Overlay tint colours (RGB) and blend strength for previews
+const OVL_GREEN = [26, 144, 128];
+const OVL_SKY   = [60, 130, 200];
+const OVL_ALPHA = 0.5;
+function blendPixel(d, i, C) {
+  d[i]     = d[i]     * (1 - OVL_ALPHA) + C[0] * OVL_ALPHA;
+  d[i + 1] = d[i + 1] * (1 - OVL_ALPHA) + C[1] * OVL_ALPHA;
+  d[i + 2] = d[i + 2] * (1 - OVL_ALPHA) + C[2] * OVL_ALPHA;
+}
+
+function classifyPixelCounts(img, wantPreview) {
   const c = document.createElement('canvas');
   c.width = img.naturalWidth; c.height = img.naturalHeight;
   const ctx = c.getContext('2d');
   ctx.drawImage(img, 0, 0);
-  const d = ctx.getImageData(0, 0, c.width, c.height).data;
+  const imgData = ctx.getImageData(0, 0, c.width, c.height);
+  const d = imgData.data;
   let green = 0, sky = 0, total = 0;
   for (let i = 0; i < d.length; i += 4) {
     const r = d[i], g = d[i + 1], b = d[i + 2];
     total++;
     if (g > r && g > b && (2 * g - r - b) >= 24 && g >= 40) {
       green++;
+      if (wantPreview) blendPixel(d, i, OVL_GREEN);
     } else if ((b >= 110 && b >= r && b >= g - 10) || (r >= 190 && g >= 190 && b >= 195)) {
       sky++;
+      if (wantPreview) blendPixel(d, i, OVL_SKY);
     }
-    // everything else is treated as built environment (counted as the remainder)
+    // everything else is treated as built environment (untinted remainder)
   }
-  return { green, sky, total };
+  let preview = '';
+  if (wantPreview) { ctx.putImageData(imgData, 0, 0); preview = c.toDataURL('image/jpeg', 0.7); }
+  return { green, sky, total, preview };
 }
 
 // ML classification → returns pixel counts {green, sky, total} from DeepLab
 // ADE20K segmentation. Built environment is the remainder (total − green − sky).
 const VEG_LABEL_PATTERNS = ['tree', 'grass', 'plant', 'palm', 'flower', 'field', 'hedge'];
 const SKY_LABEL_PATTERNS = ['sky'];
-async function classifyMlCounts(img) {
+async function classifyMlCounts(img, wantPreview) {
   const model = await getMlModel();
   gviStatus('Segmenting image…');
   const out = await model.segment(img);
@@ -1393,7 +1418,35 @@ async function classifyMlCounts(img) {
     if (vegColors.has(key)) green++;
     else if (skyColors.has(key)) sky++;
   }
-  return { green, sky, total };
+  const preview = wantPreview ? buildMlPreview(img, out, vegColors, skyColors) : '';
+  return { green, sky, total, preview };
+}
+
+// Composite the original image with veg/sky tint from the segmentation map.
+// Handles the case where the segmentation map differs in size from the image.
+function buildMlPreview(img, out, vegColors, skyColors) {
+  const W = img.naturalWidth, H = img.naturalHeight;
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const ctx = c.getContext('2d');
+  ctx.drawImage(img, 0, 0);
+  const imgData = ctx.getImageData(0, 0, W, H);
+  const d = imgData.data;
+  const sm = out.segmentationMap;
+  const smW = out.width || W, smH = out.height || H;
+  for (let y = 0; y < H; y++) {
+    const sy = (smH === H) ? y : Math.floor(y * smH / H);
+    for (let x = 0; x < W; x++) {
+      const sx = (smW === W) ? x : Math.floor(x * smW / W);
+      const si = (sy * smW + sx) * 4;
+      const key = sm[si] + ',' + sm[si + 1] + ',' + sm[si + 2];
+      const di = (y * W + x) * 4;
+      if (vegColors.has(key)) blendPixel(d, di, OVL_GREEN);
+      else if (skyColors.has(key)) blendPixel(d, di, OVL_SKY);
+    }
+  }
+  ctx.putImageData(imgData, 0, 0);
+  return c.toDataURL('image/jpeg', 0.7);
 }
 
 // Convert pooled counts → {green, sky, built} percentages (built = remainder)
@@ -1411,10 +1464,12 @@ async function calcGvi(mode) {
   if (!panoId) { gviStatus('Navigate to a Street View location first.'); return; }
 
   const useML      = document.getElementById('gvi-ml-toggle')?.checked;
-  const classify   = useML ? classifyMlCounts : (img) => Promise.resolve(classifyPixelCounts(img));
+  const classify   = useML ? classifyMlCounts : (img, wp) => Promise.resolve(classifyPixelCounts(img, wp));
   const methodBase = useML ? 'ML segmentation (DeepLab ADE20K)' : 'Pixel classification';
   const fov = 90;
   const round1 = x => Math.round(x * 10) / 10;
+  const previews = [];
+  renderGviPreviews([]); // clear any previous overlay
 
   try {
     let res, detail, modeLabel;
@@ -1423,18 +1478,23 @@ async function calcGvi(mode) {
       const pov = panorama.getPov();
       gviStatus('Fetching current view…');
       const img = await fetchPanoImage(panoId, pov.heading, pov.pitch, fov);
-      res = pctFromCounts(await classify(img));
+      const c = await classify(img, true);
+      res = pctFromCounts(c);
+      previews.push({ label: 'Current view', url: c.preview });
       modeLabel = 'current view';
       detail = `pano ${panoId} · heading ${Math.round(pov.heading)}° · pitch ${Math.round(pov.pitch)}° · fov ${fov}°`;
 
     } else if (mode === 'avg') {
       // Mean of each index across the 4 cardinal horizon views
       const headings = [0, 90, 180, 270];
+      const names    = ['N (0°)', 'E (90°)', 'S (180°)', 'W (270°)'];
       const per = [];
-      for (const h of headings) {
-        gviStatus(`Fetching heading ${h}°…`);
-        const img = await fetchPanoImage(panoId, h, 0, fov);
-        per.push(pctFromCounts(await classify(img)));
+      for (let k = 0; k < headings.length; k++) {
+        gviStatus(`Fetching heading ${headings[k]}°…`);
+        const img = await fetchPanoImage(panoId, headings[k], 0, fov);
+        const c = await classify(img, true);
+        per.push(pctFromCounts(c));
+        previews.push({ label: names[k], url: c.preview });
       }
       res = {
         green: per.reduce((a, p) => a + p.green, 0) / per.length,
@@ -1447,8 +1507,8 @@ async function calcGvi(mode) {
 
     } else { // total360 — full sphere, pixels pooled into one denominator
       const samples = [
-        { h: 0, p: 0 }, { h: 90, p: 0 }, { h: 180, p: 0 }, { h: 270, p: 0 },
-        { h: 0, p: 90 }, { h: 0, p: -90 },
+        { h: 0, p: 0, n: 'N' }, { h: 90, p: 0, n: 'E' }, { h: 180, p: 0, n: 'S' }, { h: 270, p: 0, n: 'W' },
+        { h: 0, p: 90, n: 'Up' }, { h: 0, p: -90, n: 'Down' },
       ];
       const acc = { green: 0, sky: 0, total: 0 };
       let n = 0;
@@ -1456,8 +1516,9 @@ async function calcGvi(mode) {
         n++;
         gviStatus(`Fetching 360° sample ${n}/${samples.length}…`);
         const img = await fetchPanoImage(panoId, s.h, s.p, fov);
-        const c = await classify(img);
+        const c = await classify(img, true);
         acc.green += c.green; acc.sky += c.sky; acc.total += c.total;
+        previews.push({ label: s.n, url: c.preview });
       }
       res = pctFromCounts(acc);
       modeLabel = '360° total (pooled)';
@@ -1470,11 +1531,37 @@ async function calcGvi(mode) {
     };
     gviStatus('');
     showGviResult();
+    renderGviPreviews(previews);
     showToast(`Computed: green ${gviState.green}% · sky ${gviState.sky}% · built ${gviState.built}%`, 'success');
   } catch (err) {
     gviStatus('Error: ' + err.message);
     showToast('Calculation failed', 'error');
   }
+}
+
+// Render tinted overlay thumbnails for the most recent calculation.
+// Previews are session-only (not saved to the observation record).
+function renderGviPreviews(items) {
+  const el = document.getElementById('gvi-preview');
+  if (!el) return;
+  const valid = (items || []).filter(i => i.url);
+  if (!valid.length) { el.innerHTML = ''; el.style.display = 'none'; return; }
+  const w = valid.length === 1 ? '100%'
+          : valid.length <= 4 ? 'calc(50% - 0.15rem)'
+          : 'calc(33.333% - 0.2rem)';
+  el.innerHTML = `
+    <div class="gvi-legend">
+      <span><span class="sw" style="background:#1a9080"></span>Vegetation</span>
+      <span><span class="sw" style="background:#3c82c8"></span>Sky</span>
+      <span><span class="sw" style="background:transparent;border-color:#9bb3bd"></span>Built (untinted)</span>
+    </div>
+    <div class="gvi-preview-row">
+      ${valid.map(i => `<figure style="width:${w}">
+        <img class="gvi-thumb" src="${i.url}" alt="${escAttr(i.label)} overlay" loading="lazy" />
+        <figcaption class="gvi-thumb-cap">${esc(i.label)}</figcaption>
+      </figure>`).join('')}
+    </div>`;
+  el.style.display = 'flex';
 }
 
 // ================================================================

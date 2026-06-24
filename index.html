@@ -382,14 +382,45 @@
     .ml-toggle { display: flex; align-items: center; gap: 0.4rem; font-size: 0.7rem; color: var(--text-muted); cursor: pointer; font-weight: 400; margin: 0; }
     .ml-toggle input { width: auto; accent-color: var(--accent); }
 
-    /* ── GVI overlay previews ─────────────────────────────────── */
-    .gvi-preview { display: none; flex-direction: column; gap: 0.3rem; }
-    .gvi-legend { display: flex; gap: 0.55rem; flex-wrap: wrap; font-size: 0.62rem; color: var(--text-muted); }
-    .gvi-legend .sw { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 3px; vertical-align: middle; border: 1px solid rgba(0,0,0,0.12); }
-    .gvi-preview-row { display: flex; flex-wrap: wrap; gap: 0.3rem; }
-    .gvi-preview-row figure { margin: 0; display: flex; flex-direction: column; gap: 0.1rem; }
-    .gvi-thumb { width: 100%; display: block; border-radius: 4px; border: 1px solid var(--border); }
-    .gvi-thumb-cap { font-size: 0.58rem; color: var(--text-muted); text-align: center; }
+    /* ── Composition overlay panel (floats over the map) ──────── */
+    .gvi-overlay-panel {
+      position: absolute; top: 12px; left: 12px;
+      width: 288px; max-width: 44%;
+      background: rgba(255,255,255,0.97);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      box-shadow: 0 4px 18px rgba(0,0,0,0.28);
+      z-index: 6; display: none; flex-direction: column; overflow: hidden;
+    }
+    .gvi-overlay-panel.open { display: flex; }
+    .gop-header { display: flex; align-items: center; gap: 0.4rem; background: var(--primary); color: #fff; padding: 0.38rem 0.55rem; }
+    .gop-title { font-weight: 600; font-size: 0.72rem; flex: 1; }
+    .gop-toggle { display: flex; align-items: center; gap: 0.25rem; font-size: 0.64rem; color: #fff; cursor: pointer; margin: 0; white-space: nowrap; }
+    .gop-toggle input { width: auto; accent-color: var(--accent); }
+    .gop-btn { background: rgba(255,255,255,0.22); border: none; color: #fff; cursor: pointer; border-radius: 3px; width: 19px; height: 19px; line-height: 1; font-size: 0.82rem; padding: 0; }
+    .gop-btn:hover { background: rgba(255,255,255,0.4); }
+    .gop-legend { display: flex; gap: 0.55rem; flex-wrap: wrap; padding: 0.3rem 0.55rem; color: var(--text-muted); font-size: 0.62rem; border-bottom: 1px solid var(--border); }
+    .gop-legend .sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 3px; vertical-align: middle; border: 1px solid rgba(0,0,0,0.15); }
+    .gop-body { padding: 0.4rem 0.55rem; display: grid; grid-template-columns: 1fr 1fr; gap: 0.3rem; overflow-y: auto; max-height: 46vh; }
+    .gop-body.collapsed { display: none; }
+    .gop-body figure { margin: 0; cursor: zoom-in; display: flex; flex-direction: column; gap: 0.1rem; }
+    .gop-body img { width: 100%; display: block; border-radius: 4px; border: 1px solid var(--border); }
+    .gop-body figcaption { font-size: 0.58rem; color: var(--text-muted); text-align: center; }
+    .gop-summary { padding: 0.34rem 0.55rem; border-top: 1px solid var(--border); font-size: 0.68rem; color: var(--text); }
+    .gop-summary strong { color: var(--accent); }
+    .gop-summary.collapsed { display: none; }
+
+    /* ── Lightbox (enlarged overlay image) ────────────────────── */
+    .gvi-lightbox {
+      position: fixed; inset: 0; z-index: 200;
+      background: rgba(10,20,25,0.86);
+      display: none; align-items: center; justify-content: center;
+      flex-direction: column; gap: 0.7rem; cursor: zoom-out;
+    }
+    .gvi-lightbox.open { display: flex; }
+    .gvi-lightbox img { max-width: 90vw; max-height: 80vh; border-radius: 8px; box-shadow: 0 8px 40px rgba(0,0,0,0.55); cursor: default; }
+    .lb-controls { display: flex; align-items: center; gap: 0.6rem; }
+    .lb-cap { color: #fff; font-size: 0.82rem; }
 
     /* ── Tabs ─────────────────────────────────────────────────── */
     .tab-bar { display: flex; border-bottom: 1px solid var(--border); }
@@ -689,6 +720,32 @@
     <div id="pano-loading">Loading Street View…</div>
     <div id="pano"></div>
     <div id="map"></div>
+
+    <!-- Composition overlay panel (populated after a calculation) -->
+    <div id="gvi-overlay-panel" class="gvi-overlay-panel">
+      <div class="gop-header">
+        <span class="gop-title">Composition overlay</span>
+        <label class="gop-toggle"><input type="checkbox" id="gop-toggle" checked onchange="gopToggle()" /> Mask</label>
+        <button class="gop-btn" title="Collapse" onclick="gopCollapse()">–</button>
+        <button class="gop-btn" title="Close" onclick="gopClose()">✕</button>
+      </div>
+      <div class="gop-legend" id="gop-legend">
+        <span><span class="sw" style="background:rgb(46,160,67)"></span>Vegetation</span>
+        <span><span class="sw" style="background:rgb(64,132,210)"></span>Sky</span>
+        <span><span class="sw" style="background:rgb(140,140,140)"></span>Built</span>
+      </div>
+      <div class="gop-summary" id="gop-summary"></div>
+      <div class="gop-body" id="gop-body"></div>
+    </div>
+  </div>
+
+  <!-- Lightbox for enlarged overlay images -->
+  <div class="gvi-lightbox" id="gvi-lightbox" onclick="closeGviLightbox()">
+    <div class="lb-controls" onclick="event.stopPropagation()">
+      <button class="btn btn-outline btn-sm" onclick="lbToggle()">Toggle mask / original</button>
+      <span class="lb-cap" id="gvi-lightbox-cap"></span>
+    </div>
+    <img id="gvi-lightbox-img" alt="Enlarged overlay" onclick="event.stopPropagation()" />
   </div>
 
 </div><!-- /app -->
@@ -763,14 +820,14 @@ const BUILTIN_MODULES = [
     description: 'Estimate and computationally measure the visual composition of the street scene — green (vegetation), sky, and built-environment view indices. Heading, pitch, and zoom are logged for replicability.',
     fields: [
       { section: 'Manual estimate',
-        id: 'gviManual',  label: 'Visible vegetation (%)', type: 'slider', min: 0, max: 100, step: 1, value: 0 },
+        id: 'manual_veg_pct',  label: 'Visible vegetation (%)', type: 'slider', min: 0, max: 100, step: 1, value: 0 },
       { id: 'vegTypes',   label: 'Vegetation types', type: 'checks',
         options: ['Trees', 'Shrubs', 'Grass / ground cover', 'Planters / green walls', 'Vines / climbers'] },
       { id: 'season',     label: 'Foliage condition', type: 'select',
         options: ['Leaf-on (summer)', 'Partial (spring/autumn)', 'Leaf-off (winter)', 'Unsure'] },
       { section: 'Computational view indices',
-        id: 'gviAuto',    label: '', type: 'gvi',
-        help: 'Computes green / sky / built-environment view indices (built = 100 − green − sky, so the three sum to ~100%). Pixel method: fast colour heuristics. ML method: DeepLab ADE20K segmentation (~9 MB model on first use). "This view" uses the current heading; "4-heading avg" averages N/E/S/W; "360° total" pools pixels from a 6-view sphere (4 headings + up + down). Requires the Street View Static API on your key.' },
+        id: 'computed',   label: '', type: 'gvi',
+        help: 'Computes green / sky / built-environment view indices (built = 100 − green − sky, so the three sum to ~100%). Pixel method: fast colour heuristics. ML method: DeepLab ADE20K segmentation (~9 MB model on first use). "This view" uses the current heading; "4-heading avg" averages N/E/S/W; "360° total" pools pixels from a 6-view sphere (4 headings + up + down). After computing, a panel over the map shows the classified mask for each view (toggle mask/original, click to enlarge). Requires the Street View Static API on your key.' },
     ],
   },
   {
@@ -1082,7 +1139,6 @@ function fieldHtml(moduleId, f) {
           </div>
           <div class="gvi-status" id="gvi-status"></div>
           <div class="gvi-result" id="gvi-result"></div>
-          <div class="gvi-preview" id="gvi-preview"></div>
         </div>${help}`;
       return `<div>${inner}</div>`;
 
@@ -1128,6 +1184,7 @@ function renderModuleSelect() {
 function selectModule(id) {
   currentModuleId = id;
   if (editingId) cancelEdit();
+  if (typeof gopClose === 'function') gopClose(); // hide stale overlay panel
   renderForm();
 }
 
@@ -1196,13 +1253,12 @@ function collectFields(mod) {
         break;
       }
       case 'gvi': {
-        data.gviGreen  = gviState.green;
-        data.gviSky    = gviState.sky;
-        data.gviBuilt  = gviState.built;
-        data.gviAuto   = gviState.green;   // backward-compat: legacy GVI == green view index
-        data.gviMode   = gviState.mode;
-        data.gviMethod = gviState.method;
-        data.gviDetail = gviState.detail;
+        data.green_view_pct = gviState.green;
+        data.sky_view_pct   = gviState.sky;
+        data.built_view_pct = gviState.built;
+        data.calc_mode      = gviState.mode;
+        data.calc_method    = gviState.method;
+        data.calc_detail    = gviState.detail;
         break;
       }
     }
@@ -1260,16 +1316,15 @@ function setFields(mod, data) {
         break;
       }
       case 'gvi': {
-        const greenVal = (data.gviGreen != null && data.gviGreen !== '')
-          ? data.gviGreen
-          : (data.gviAuto != null ? data.gviAuto : '');
+        // Read new clean keys; fall back to legacy keys for older records.
+        const pick = (a, b) => (a != null && a !== '') ? a : (b != null ? b : '');
         gviState = {
-          green:  greenVal,
-          sky:    data.gviSky   != null ? data.gviSky   : '',
-          built:  data.gviBuilt != null ? data.gviBuilt : '',
-          mode:   data.gviMode || '',
-          method: data.gviMethod || '',
-          detail: data.gviDetail || '',
+          green:  pick(data.green_view_pct, data.gviGreen != null ? data.gviGreen : data.gviAuto),
+          sky:    pick(data.sky_view_pct,   data.gviSky),
+          built:  pick(data.built_view_pct, data.gviBuilt),
+          mode:   data.calc_mode   || data.gviMode   || '',
+          method: data.calc_method || data.gviMethod || '',
+          detail: data.calc_detail || data.gviDetail || '',
         };
         if (gviState.green !== '' && gviState.green != null) showGviResult();
         break;
@@ -1360,14 +1415,18 @@ function fetchPanoImage(panoId, heading, pitch, fov) {
 // so multiple views can be pooled by summing counts.
 //   green: excess-green threshold (after Li et al. 2015)
 //   sky:   bright blue OR bright near-white/grey (overcast) pixels
-// Overlay tint colours (RGB) and blend strength for previews
-const OVL_GREEN = [26, 144, 128];
-const OVL_SKY   = [60, 130, 200];
-const OVL_ALPHA = 0.5;
-function blendPixel(d, i, C) {
-  d[i]     = d[i]     * (1 - OVL_ALPHA) + C[0] * OVL_ALPHA;
-  d[i + 1] = d[i + 1] * (1 - OVL_ALPHA) + C[1] * OVL_ALPHA;
-  d[i + 2] = d[i + 2] * (1 - OVL_ALPHA) + C[2] * OVL_ALPHA;
+// Overlay mask colours (RGB) — semantic: vegetation green, sky blue, built grey.
+// Masks are washed over a desaturated (grayscale) base so the class colour
+// stands out against the real scene (e.g. green wash over grey foliage).
+const OVL_GREEN = [46, 160, 67];
+const OVL_SKY   = [64, 132, 210];
+const OVL_BUILT = [140, 140, 140];
+const OVL_ALPHA = 0.55;
+function maskPixel(d, i, C) {
+  const gray = 0.3 * d[i] + 0.59 * d[i + 1] + 0.11 * d[i + 2];
+  d[i]     = gray * (1 - OVL_ALPHA) + C[0] * OVL_ALPHA;
+  d[i + 1] = gray * (1 - OVL_ALPHA) + C[1] * OVL_ALPHA;
+  d[i + 2] = gray * (1 - OVL_ALPHA) + C[2] * OVL_ALPHA;
 }
 
 function classifyPixelCounts(img, wantPreview) {
@@ -1377,22 +1436,22 @@ function classifyPixelCounts(img, wantPreview) {
   ctx.drawImage(img, 0, 0);
   const imgData = ctx.getImageData(0, 0, c.width, c.height);
   const d = imgData.data;
+  const origUrl = wantPreview ? c.toDataURL('image/jpeg', 0.7) : '';
   let green = 0, sky = 0, total = 0;
   for (let i = 0; i < d.length; i += 4) {
     const r = d[i], g = d[i + 1], b = d[i + 2];
     total++;
+    let C = OVL_BUILT; // default: built environment (the remainder)
     if (g > r && g > b && (2 * g - r - b) >= 24 && g >= 40) {
-      green++;
-      if (wantPreview) blendPixel(d, i, OVL_GREEN);
+      green++; C = OVL_GREEN;
     } else if ((b >= 110 && b >= r && b >= g - 10) || (r >= 190 && g >= 190 && b >= 195)) {
-      sky++;
-      if (wantPreview) blendPixel(d, i, OVL_SKY);
+      sky++; C = OVL_SKY;
     }
-    // everything else is treated as built environment (untinted remainder)
+    if (wantPreview) maskPixel(d, i, C);
   }
-  let preview = '';
-  if (wantPreview) { ctx.putImageData(imgData, 0, 0); preview = c.toDataURL('image/jpeg', 0.7); }
-  return { green, sky, total, preview };
+  let maskUrl = '';
+  if (wantPreview) { ctx.putImageData(imgData, 0, 0); maskUrl = c.toDataURL('image/jpeg', 0.7); }
+  return { green, sky, total, maskUrl, origUrl };
 }
 
 // ML classification → returns pixel counts {green, sky, total} from DeepLab
@@ -1418,12 +1477,14 @@ async function classifyMlCounts(img, wantPreview) {
     if (vegColors.has(key)) green++;
     else if (skyColors.has(key)) sky++;
   }
-  const preview = wantPreview ? buildMlPreview(img, out, vegColors, skyColors) : '';
-  return { green, sky, total, preview };
+  let maskUrl = '', origUrl = '';
+  if (wantPreview) { const p = buildMlPreview(img, out, vegColors, skyColors); maskUrl = p.maskUrl; origUrl = p.origUrl; }
+  return { green, sky, total, maskUrl, origUrl };
 }
 
-// Composite the original image with veg/sky tint from the segmentation map.
-// Handles the case where the segmentation map differs in size from the image.
+// Composite a desaturated copy of the image with veg/sky/built mask colours
+// from the segmentation map. Handles a segmentation map sized differently
+// from the source image. Returns both the mask and the plain original.
 function buildMlPreview(img, out, vegColors, skyColors) {
   const W = img.naturalWidth, H = img.naturalHeight;
   const c = document.createElement('canvas');
@@ -1432,6 +1493,7 @@ function buildMlPreview(img, out, vegColors, skyColors) {
   ctx.drawImage(img, 0, 0);
   const imgData = ctx.getImageData(0, 0, W, H);
   const d = imgData.data;
+  const origUrl = c.toDataURL('image/jpeg', 0.7);
   const sm = out.segmentationMap;
   const smW = out.width || W, smH = out.height || H;
   for (let y = 0; y < H; y++) {
@@ -1441,12 +1503,12 @@ function buildMlPreview(img, out, vegColors, skyColors) {
       const si = (sy * smW + sx) * 4;
       const key = sm[si] + ',' + sm[si + 1] + ',' + sm[si + 2];
       const di = (y * W + x) * 4;
-      if (vegColors.has(key)) blendPixel(d, di, OVL_GREEN);
-      else if (skyColors.has(key)) blendPixel(d, di, OVL_SKY);
+      const C = vegColors.has(key) ? OVL_GREEN : (skyColors.has(key) ? OVL_SKY : OVL_BUILT);
+      maskPixel(d, di, C);
     }
   }
   ctx.putImageData(imgData, 0, 0);
-  return c.toDataURL('image/jpeg', 0.7);
+  return { maskUrl: c.toDataURL('image/jpeg', 0.7), origUrl };
 }
 
 // Convert pooled counts → {green, sky, built} percentages (built = remainder)
@@ -1469,7 +1531,8 @@ async function calcGvi(mode) {
   const fov = 90;
   const round1 = x => Math.round(x * 10) / 10;
   const previews = [];
-  renderGviPreviews([]); // clear any previous overlay
+  gopShowMask = true;
+  gviPanelLoading(); // open the overlay panel in a loading state
 
   try {
     let res, detail, modeLabel;
@@ -1480,7 +1543,7 @@ async function calcGvi(mode) {
       const img = await fetchPanoImage(panoId, pov.heading, pov.pitch, fov);
       const c = await classify(img, true);
       res = pctFromCounts(c);
-      previews.push({ label: 'Current view', url: c.preview });
+      previews.push({ label: 'Current view', mask: c.maskUrl, orig: c.origUrl, pct: res });
       modeLabel = 'current view';
       detail = `pano ${panoId} · heading ${Math.round(pov.heading)}° · pitch ${Math.round(pov.pitch)}° · fov ${fov}°`;
 
@@ -1493,8 +1556,9 @@ async function calcGvi(mode) {
         gviStatus(`Fetching heading ${headings[k]}°…`);
         const img = await fetchPanoImage(panoId, headings[k], 0, fov);
         const c = await classify(img, true);
-        per.push(pctFromCounts(c));
-        previews.push({ label: names[k], url: c.preview });
+        const pv = pctFromCounts(c);
+        per.push(pv);
+        previews.push({ label: names[k], mask: c.maskUrl, orig: c.origUrl, pct: pv });
       }
       res = {
         green: per.reduce((a, p) => a + p.green, 0) / per.length,
@@ -1518,7 +1582,7 @@ async function calcGvi(mode) {
         const img = await fetchPanoImage(panoId, s.h, s.p, fov);
         const c = await classify(img, true);
         acc.green += c.green; acc.sky += c.sky; acc.total += c.total;
-        previews.push({ label: s.n, url: c.preview });
+        previews.push({ label: s.n, mask: c.maskUrl, orig: c.origUrl, pct: pctFromCounts(c) });
       }
       res = pctFromCounts(acc);
       modeLabel = '360° total (pooled)';
@@ -1531,37 +1595,124 @@ async function calcGvi(mode) {
     };
     gviStatus('');
     showGviResult();
-    renderGviPreviews(previews);
+    const summary = `Green <strong>${gviState.green}%</strong> · Sky <strong>${gviState.sky}%</strong> · Built <strong>${gviState.built}%</strong>
+      <div style="font-size:0.6rem;color:var(--text-muted);margin-top:0.1rem">${esc(gviState.method)}</div>`;
+    renderGviPanel(previews, summary);
     showToast(`Computed: green ${gviState.green}% · sky ${gviState.sky}% · built ${gviState.built}%`, 'success');
   } catch (err) {
     gviStatus('Error: ' + err.message);
+    gviPanelError(err.message);
     showToast('Calculation failed', 'error');
   }
 }
 
-// Render tinted overlay thumbnails for the most recent calculation.
-// Previews are session-only (not saved to the observation record).
-function renderGviPreviews(items) {
-  const el = document.getElementById('gvi-preview');
-  if (!el) return;
-  const valid = (items || []).filter(i => i.url);
-  if (!valid.length) { el.innerHTML = ''; el.style.display = 'none'; return; }
-  const w = valid.length === 1 ? '100%'
-          : valid.length <= 4 ? 'calc(50% - 0.15rem)'
-          : 'calc(33.333% - 0.2rem)';
-  el.innerHTML = `
-    <div class="gvi-legend">
-      <span><span class="sw" style="background:#1a9080"></span>Vegetation</span>
-      <span><span class="sw" style="background:#3c82c8"></span>Sky</span>
-      <span><span class="sw" style="background:transparent;border-color:#9bb3bd"></span>Built (untinted)</span>
-    </div>
-    <div class="gvi-preview-row">
-      ${valid.map(i => `<figure style="width:${w}">
-        <img class="gvi-thumb" src="${i.url}" alt="${escAttr(i.label)} overlay" loading="lazy" />
-        <figcaption class="gvi-thumb-cap">${esc(i.label)}</figcaption>
-      </figure>`).join('')}
-    </div>`;
-  el.style.display = 'flex';
+// ================================================================
+// Composition overlay panel (floats over the map) + lightbox
+// Previews are session-only — they are NOT saved to the record.
+// ================================================================
+let gviPreviewItems = [];
+let gopShowMask = true;
+
+function gviPanelLoading() {
+  const panel = document.getElementById('gvi-overlay-panel');
+  if (!panel) return;
+  panel.classList.add('open');
+  document.getElementById('gop-body').classList.remove('collapsed');
+  document.getElementById('gop-summary').classList.remove('collapsed');
+  document.getElementById('gop-legend').style.display = '';
+  document.getElementById('gop-summary').innerHTML = 'Computing…';
+  document.getElementById('gop-body').innerHTML =
+    '<div style="grid-column:1/-1;color:var(--text-muted);padding:0.3rem">Fetching imagery…</div>';
+}
+
+function gviPanelError(msg) {
+  const sum = document.getElementById('gop-summary');
+  const body = document.getElementById('gop-body');
+  if (sum) sum.innerHTML = '<span style="color:var(--danger)">Calculation failed</span>';
+  if (body) body.innerHTML =
+    `<div style="grid-column:1/-1;color:var(--text-muted);padding:0.3rem">${esc(msg || '')}</div>`;
+}
+
+function renderGviPanel(items, summaryHtml) {
+  gviPreviewItems = (items || []).filter(i => i.mask || i.orig);
+  const panel = document.getElementById('gvi-overlay-panel');
+  if (!panel) return;
+  if (!gviPreviewItems.length) { panel.classList.remove('open'); return; }
+  panel.classList.add('open');
+  const body = document.getElementById('gop-body');
+  body.style.gridTemplateColumns = gviPreviewItems.length === 1 ? '1fr' : '1fr 1fr';
+  const key = gopShowMask ? 'mask' : 'orig';
+  body.innerHTML = gviPreviewItems.map((it, idx) => `
+    <figure onclick="openGviLightbox(${idx})" title="Click to enlarge">
+      <img src="${it[key] || it.mask || it.orig}" alt="${escAttr(it.label)}" loading="lazy" />
+      <figcaption>${esc(it.label)}${it.pct
+        ? ` · G${Math.round(it.pct.green)} S${Math.round(it.pct.sky)} B${Math.round(it.pct.built)}`
+        : ''}</figcaption>
+    </figure>`).join('');
+  const sum = document.getElementById('gop-summary');
+  sum.innerHTML = summaryHtml || '';
+  document.getElementById('gop-toggle').checked = gopShowMask;
+}
+
+function gopToggle() {
+  gopShowMask = document.getElementById('gop-toggle').checked;
+  const key = gopShowMask ? 'mask' : 'orig';
+  document.querySelectorAll('#gop-body figure img').forEach((img, idx) => {
+    const it = gviPreviewItems[idx];
+    if (it) img.src = it[key] || it.mask || it.orig;
+  });
+  const lb = document.getElementById('gvi-lightbox');
+  if (lb && lb.classList.contains('open') && lb.dataset.idx) {
+    const it = gviPreviewItems[Number(lb.dataset.idx)];
+    if (it) {
+      document.getElementById('gvi-lightbox-img').src = it[key] || it.mask || it.orig;
+      document.getElementById('gvi-lightbox-cap').textContent =
+        previewCaption(it);
+    }
+  }
+}
+
+function gopCollapse() {
+  const body = document.getElementById('gop-body');
+  const sum  = document.getElementById('gop-summary');
+  const leg  = document.getElementById('gop-legend');
+  const collapsed = body.classList.toggle('collapsed');
+  sum.classList.toggle('collapsed', collapsed);
+  leg.style.display = collapsed ? 'none' : '';
+}
+
+function gopClose() {
+  document.getElementById('gvi-overlay-panel').classList.remove('open');
+}
+
+function openGviLightbox(idx) {
+  const it = gviPreviewItems[idx];
+  if (!it) return;
+  const lb  = document.getElementById('gvi-lightbox');
+  const key = gopShowMask ? 'mask' : 'orig';
+  document.getElementById('gvi-lightbox-img').src = it[key] || it.mask || it.orig;
+  document.getElementById('gvi-lightbox-cap').textContent = previewCaption(it);
+  lb.dataset.idx = idx;
+  lb.classList.add('open');
+}
+
+// Caption text including per-view percentages and current mask/original state
+function previewCaption(it) {
+  const pct = it.pct
+    ? ` · G${Math.round(it.pct.green)} S${Math.round(it.pct.sky)} B${Math.round(it.pct.built)}`
+    : '';
+  return it.label + pct + (gopShowMask ? ' — mask' : ' — original');
+}
+
+function closeGviLightbox() {
+  document.getElementById('gvi-lightbox').classList.remove('open');
+}
+
+// Toggle mask/original from inside the lightbox (also syncs the panel)
+function lbToggle() {
+  const cb = document.getElementById('gop-toggle');
+  cb.checked = !cb.checked;
+  gopToggle();
 }
 
 // ================================================================
@@ -1749,10 +1900,16 @@ function obsSummary(obs) {
   switch (obs.module) {
     case 'urban-change':   return [d.feature, d.featurechange];
     case 'gvi': {
-      const manual = (d.gviManual !== '' && d.gviManual != null) ? d.gviManual + '% veg (manual)' : '';
-      const comp = (d.gviGreen !== '' && d.gviGreen != null)
-        ? 'G ' + d.gviGreen + '% · S ' + d.gviSky + '% · B ' + d.gviBuilt + '%' + (d.gviMode ? ' (' + d.gviMode + ')' : '')
-        : ((d.gviAuto !== '' && d.gviAuto != null) ? d.gviAuto + '% (computed)' : '');
+      const pickv = (a, b) => (a != null && a !== '') ? a : b;
+      const mv   = pickv(d.manual_veg_pct, d.gviManual);
+      const g    = pickv(d.green_view_pct, d.gviGreen);
+      const s    = pickv(d.sky_view_pct,   d.gviSky);
+      const b    = pickv(d.built_view_pct, d.gviBuilt);
+      const mode = d.calc_mode || d.gviMode || '';
+      const manual = (mv !== '' && mv != null) ? mv + '% veg (manual)' : '';
+      const comp = (g !== '' && g != null)
+        ? 'G ' + g + '% · S ' + s + '% · B ' + b + '%' + (mode ? ' (' + mode + ')' : '')
+        : '';
       return [[manual, comp].filter(Boolean).join(' · ') || 'Scene composition',
               Array.isArray(d.vegTypes) ? d.vegTypes.join(', ') : (d.vegTypes || '')];
     }
@@ -1822,7 +1979,7 @@ function exportCsvModule() {
   if (!rows.length) { showToast(`No observations for “${mod.name}”`, 'error'); return; }
 
   const schemaKeys = mod.fields.flatMap(f =>
-    f.type === 'gvi' ? ['gviGreen', 'gviSky', 'gviBuilt', 'gviAuto', 'gviMode', 'gviMethod', 'gviDetail'] : [f.id]);
+    f.type === 'gvi' ? ['green_view_pct', 'sky_view_pct', 'built_view_pct', 'calc_mode', 'calc_method', 'calc_detail'] : [f.id]);
   const extraKeys = [...new Set(rows.flatMap(o => Object.keys(o.data || {})))]
     .filter(k => !schemaKeys.includes(k));
   const cols = [...CORE_COLS, ...schemaKeys, ...extraKeys];
@@ -2313,10 +2470,11 @@ function initMap() {
     zoom:               17,
     disableDefaultUI:   true,
     zoomControl:        true,
-    streetViewControl:  false,
+    streetViewControl:  true,   // pegman — drag onto a street to move the panorama
     mapTypeControl:     false,
     fullscreenControl:  false,
-    zoomControlOptions: { position: google.maps.ControlPosition.LEFT_BOTTOM },
+    zoomControlOptions:       { position: google.maps.ControlPosition.LEFT_BOTTOM },
+    streetViewControlOptions: { position: google.maps.ControlPosition.RIGHT_TOP },
   });
   miniMap.setStreetView(panorama); // pegman tracks the panorama
 

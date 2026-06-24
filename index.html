@@ -382,6 +382,24 @@
     .ml-toggle { display: flex; align-items: center; gap: 0.4rem; font-size: 0.7rem; color: var(--text-muted); cursor: pointer; font-weight: 400; margin: 0; }
     .ml-toggle input { width: auto; accent-color: var(--accent); }
 
+    /* ── Info button + collapsible help ───────────────────────── */
+    .gvi-toprow { display: flex; align-items: center; gap: 0.4rem; }
+    .gvi-toprow .ml-toggle { flex: 1; }
+    .info-btn {
+      width: 16px; height: 16px; flex-shrink: 0; padding: 0;
+      border-radius: 50%; border: 1px solid var(--accent);
+      background: var(--white); color: var(--accent);
+      font-family: Georgia, 'Times New Roman', serif; font-style: italic; font-weight: 700;
+      font-size: 0.66rem; line-height: 1; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .info-btn:hover, .info-btn.active { background: var(--accent); color: #fff; }
+    .gvi-help {
+      display: none; font-size: 0.63rem; color: var(--text-muted); line-height: 1.35;
+      background: var(--accent-light); border-radius: 4px; padding: 0.35rem 0.45rem;
+    }
+    .gvi-help.open { display: block; }
+
     /* ── Composition overlay panel (floats over the map) ──────── */
     .gvi-overlay-panel {
       position: absolute; top: 12px; left: 12px;
@@ -419,7 +437,7 @@
     }
     .gvi-lightbox.open { display: flex; }
     .gvi-lightbox img { max-width: 90vw; max-height: 80vh; border-radius: 8px; box-shadow: 0 8px 40px rgba(0,0,0,0.55); cursor: default; }
-    .lb-controls { display: flex; align-items: center; gap: 0.6rem; }
+    .lb-controls { display: flex; align-items: center; justify-content: center; gap: 0.5rem; flex-wrap: wrap; max-width: 92vw; }
     .lb-cap { color: #fff; font-size: 0.82rem; }
 
     /* ── Tabs ─────────────────────────────────────────────────── */
@@ -726,6 +744,7 @@
       <div class="gop-header">
         <span class="gop-title">Composition overlay</span>
         <label class="gop-toggle"><input type="checkbox" id="gop-toggle" checked onchange="gopToggle()" /> Mask</label>
+        <button class="gop-btn" title="Download all layers (ZIP)" onclick="downloadAllLayers()">⬇</button>
         <button class="gop-btn" title="Collapse" onclick="gopCollapse()">–</button>
         <button class="gop-btn" title="Close" onclick="gopClose()">✕</button>
       </div>
@@ -746,6 +765,14 @@
       <span class="lb-cap" id="gvi-lightbox-cap"></span>
     </div>
     <img id="gvi-lightbox-img" alt="Enlarged overlay" onclick="event.stopPropagation()" />
+    <div class="lb-controls" onclick="event.stopPropagation()">
+      <span style="color:#fff;font-size:0.72rem">Download PNG:</span>
+      <button class="btn btn-outline btn-sm" onclick="downloadCurrentLayer('original')">Original</button>
+      <button class="btn btn-outline btn-sm" onclick="downloadCurrentLayer('composite')">Composite</button>
+      <button class="btn btn-outline btn-sm" onclick="downloadCurrentLayer('green')">Green</button>
+      <button class="btn btn-outline btn-sm" onclick="downloadCurrentLayer('sky')">Sky</button>
+      <button class="btn btn-outline btn-sm" onclick="downloadCurrentLayer('built')">Built</button>
+    </div>
   </div>
 
 </div><!-- /app -->
@@ -820,7 +847,9 @@ const BUILTIN_MODULES = [
     description: 'Estimate and computationally measure the visual composition of the street scene — green (vegetation), sky, and built-environment view indices. Heading, pitch, and zoom are logged for replicability.',
     fields: [
       { section: 'Manual estimate',
-        id: 'manual_veg_pct',  label: 'Visible vegetation (%)', type: 'slider', min: 0, max: 100, step: 1, value: 0 },
+        id: 'manual_veg_pct',   label: 'Visible vegetation (%)', type: 'slider', min: 0, max: 100, step: 1, value: 0 },
+      { id: 'manual_sky_pct',   label: 'Visible sky (%)',         type: 'slider', min: 0, max: 100, step: 1, value: 0 },
+      { id: 'manual_built_pct', label: 'Visible built environment (%)', type: 'slider', min: 0, max: 100, step: 1, value: 0 },
       { id: 'vegTypes',   label: 'Vegetation types', type: 'checks',
         options: ['Trees', 'Shrubs', 'Grass / ground cover', 'Planters / green walls', 'Vines / climbers'] },
       { id: 'season',     label: 'Foliage condition', type: 'select',
@@ -1130,8 +1159,12 @@ function fieldHtml(moduleId, f) {
     case 'gvi':
       inner = `
         <div class="gvi-panel" data-fid="${escAttr(f.id)}">
-          <label class="ml-toggle"><input type="checkbox" id="gvi-ml-toggle" />
-            Use ML segmentation (DeepLab — slower, more accurate)</label>
+          <div class="gvi-toprow">
+            <label class="ml-toggle"><input type="checkbox" id="gvi-ml-toggle" />
+              Use ML segmentation (slower, more accurate)</label>
+            ${f.help ? `<button type="button" class="info-btn" title="How this works" aria-label="How this works" onclick="toggleGviHelp(this)">i</button>` : ''}
+          </div>
+          ${f.help ? `<div class="gvi-help" id="gvi-help">${esc(f.help)}</div>` : ''}
           <div class="gvi-buttons">
             <button type="button" class="btn btn-secondary btn-sm" onclick="calcGvi('view')">This view</button>
             <button type="button" class="btn btn-secondary btn-sm" onclick="calcGvi('avg')">4-heading avg</button>
@@ -1139,7 +1172,7 @@ function fieldHtml(moduleId, f) {
           </div>
           <div class="gvi-status" id="gvi-status"></div>
           <div class="gvi-result" id="gvi-result"></div>
-        </div>${help}`;
+        </div>`;
       return `<div>${inner}</div>`;
 
     default:
@@ -1422,6 +1455,8 @@ const OVL_GREEN = [46, 160, 67];
 const OVL_SKY   = [64, 132, 210];
 const OVL_BUILT = [140, 140, 140];
 const OVL_ALPHA = 0.55;
+// Class ids used in the per-pixel classMap: 0 = built, 1 = vegetation, 2 = sky
+const OVL_COLORS = [OVL_BUILT, OVL_GREEN, OVL_SKY];
 function maskPixel(d, i, C) {
   const gray = 0.3 * d[i] + 0.59 * d[i + 1] + 0.11 * d[i + 2];
   d[i]     = gray * (1 - OVL_ALPHA) + C[0] * OVL_ALPHA;
@@ -1430,28 +1465,37 @@ function maskPixel(d, i, C) {
 }
 
 function classifyPixelCounts(img, wantPreview) {
+  const w = img.naturalWidth, h = img.naturalHeight;
   const c = document.createElement('canvas');
-  c.width = img.naturalWidth; c.height = img.naturalHeight;
+  c.width = w; c.height = h;
   const ctx = c.getContext('2d');
   ctx.drawImage(img, 0, 0);
-  const imgData = ctx.getImageData(0, 0, c.width, c.height);
-  const d = imgData.data;
+  const orig = ctx.getImageData(0, 0, w, h);
+  const d = orig.data;
   const origUrl = wantPreview ? c.toDataURL('image/jpeg', 0.7) : '';
+  const classMap = wantPreview ? new Uint8Array(w * h) : null;
   let green = 0, sky = 0, total = 0;
-  for (let i = 0; i < d.length; i += 4) {
+  for (let i = 0, p = 0; i < d.length; i += 4, p++) {
     const r = d[i], g = d[i + 1], b = d[i + 2];
     total++;
-    let C = OVL_BUILT; // default: built environment (the remainder)
+    let cls = 0; // built (remainder)
     if (g > r && g > b && (2 * g - r - b) >= 24 && g >= 40) {
-      green++; C = OVL_GREEN;
+      green++; cls = 1;
     } else if ((b >= 110 && b >= r && b >= g - 10) || (r >= 190 && g >= 190 && b >= 195)) {
-      sky++; C = OVL_SKY;
+      sky++; cls = 2;
     }
-    if (wantPreview) maskPixel(d, i, C);
+    if (classMap) classMap[p] = cls;
   }
   let maskUrl = '';
-  if (wantPreview) { ctx.putImageData(imgData, 0, 0); maskUrl = c.toDataURL('image/jpeg', 0.7); }
-  return { green, sky, total, maskUrl, origUrl };
+  if (wantPreview) {
+    const comp = ctx.createImageData(w, h);
+    comp.data.set(orig.data);
+    const cd = comp.data;
+    for (let p = 0; p < classMap.length; p++) maskPixel(cd, p * 4, OVL_COLORS[classMap[p]]);
+    ctx.putImageData(comp, 0, 0);
+    maskUrl = c.toDataURL('image/jpeg', 0.7);
+  }
+  return { green, sky, total, maskUrl, origUrl, classMap, w, h };
 }
 
 // ML classification → returns pixel counts {green, sky, total} from DeepLab
@@ -1477,9 +1521,13 @@ async function classifyMlCounts(img, wantPreview) {
     if (vegColors.has(key)) green++;
     else if (skyColors.has(key)) sky++;
   }
-  let maskUrl = '', origUrl = '';
-  if (wantPreview) { const p = buildMlPreview(img, out, vegColors, skyColors); maskUrl = p.maskUrl; origUrl = p.origUrl; }
-  return { green, sky, total, maskUrl, origUrl };
+  let maskUrl = '', origUrl = '', classMap = null;
+  const w = img.naturalWidth, h = img.naturalHeight;
+  if (wantPreview) {
+    const p = buildMlPreview(img, out, vegColors, skyColors);
+    maskUrl = p.maskUrl; origUrl = p.origUrl; classMap = p.classMap;
+  }
+  return { green, sky, total, maskUrl, origUrl, classMap, w, h };
 }
 
 // Composite a desaturated copy of the image with veg/sky/built mask colours
@@ -1494,6 +1542,7 @@ function buildMlPreview(img, out, vegColors, skyColors) {
   const imgData = ctx.getImageData(0, 0, W, H);
   const d = imgData.data;
   const origUrl = c.toDataURL('image/jpeg', 0.7);
+  const classMap = new Uint8Array(W * H);
   const sm = out.segmentationMap;
   const smW = out.width || W, smH = out.height || H;
   for (let y = 0; y < H; y++) {
@@ -1502,13 +1551,14 @@ function buildMlPreview(img, out, vegColors, skyColors) {
       const sx = (smW === W) ? x : Math.floor(x * smW / W);
       const si = (sy * smW + sx) * 4;
       const key = sm[si] + ',' + sm[si + 1] + ',' + sm[si + 2];
-      const di = (y * W + x) * 4;
-      const C = vegColors.has(key) ? OVL_GREEN : (skyColors.has(key) ? OVL_SKY : OVL_BUILT);
-      maskPixel(d, di, C);
+      const p = y * W + x;
+      const cls = vegColors.has(key) ? 1 : (skyColors.has(key) ? 2 : 0);
+      classMap[p] = cls;
+      maskPixel(d, p * 4, OVL_COLORS[cls]);
     }
   }
   ctx.putImageData(imgData, 0, 0);
-  return { maskUrl: c.toDataURL('image/jpeg', 0.7), origUrl };
+  return { maskUrl: c.toDataURL('image/jpeg', 0.7), origUrl, classMap };
 }
 
 // Convert pooled counts → {green, sky, built} percentages (built = remainder)
@@ -1543,7 +1593,7 @@ async function calcGvi(mode) {
       const img = await fetchPanoImage(panoId, pov.heading, pov.pitch, fov);
       const c = await classify(img, true);
       res = pctFromCounts(c);
-      previews.push({ label: 'Current view', mask: c.maskUrl, orig: c.origUrl, pct: res });
+      previews.push({ label: 'Current view', mask: c.maskUrl, orig: c.origUrl, pct: res, srcImg: img, classMap: c.classMap, w: c.w, h: c.h });
       modeLabel = 'current view';
       detail = `pano ${panoId} · heading ${Math.round(pov.heading)}° · pitch ${Math.round(pov.pitch)}° · fov ${fov}°`;
 
@@ -1558,7 +1608,7 @@ async function calcGvi(mode) {
         const c = await classify(img, true);
         const pv = pctFromCounts(c);
         per.push(pv);
-        previews.push({ label: names[k], mask: c.maskUrl, orig: c.origUrl, pct: pv });
+        previews.push({ label: names[k], mask: c.maskUrl, orig: c.origUrl, pct: pv, srcImg: img, classMap: c.classMap, w: c.w, h: c.h });
       }
       res = {
         green: per.reduce((a, p) => a + p.green, 0) / per.length,
@@ -1582,7 +1632,7 @@ async function calcGvi(mode) {
         const img = await fetchPanoImage(panoId, s.h, s.p, fov);
         const c = await classify(img, true);
         acc.green += c.green; acc.sky += c.sky; acc.total += c.total;
-        previews.push({ label: s.n, mask: c.maskUrl, orig: c.origUrl, pct: pctFromCounts(c) });
+        previews.push({ label: s.n, mask: c.maskUrl, orig: c.origUrl, pct: pctFromCounts(c), srcImg: img, classMap: c.classMap, w: c.w, h: c.h });
       }
       res = pctFromCounts(acc);
       modeLabel = '360° total (pooled)';
@@ -1706,6 +1756,92 @@ function previewCaption(it) {
 
 function closeGviLightbox() {
   document.getElementById('gvi-lightbox').classList.remove('open');
+}
+
+// Toggle the collapsible "how this works" help under the info button
+function toggleGviHelp(btn) {
+  const help = document.getElementById('gvi-help');
+  if (!help) return;
+  const open = help.classList.toggle('open');
+  if (btn) btn.classList.toggle('active', open);
+}
+
+// ================================================================
+// PNG export of overlay layers (built on demand from the stored
+// source image + per-pixel class map). All respect transparency.
+//   original  — the plain Street View image
+//   composite — desaturated scene + colour washes (opaque, as shown)
+//   green/sky/built — real-photo cutout of that class, transparent elsewhere
+// ================================================================
+function safeName(s) {
+  return String(s == null ? 'view' : s)
+    .replace(/[^a-z0-9]+/gi, '_').replace(/^_+|_+$/g, '').toLowerCase() || 'view';
+}
+
+function layerCanvas(item, layer) {
+  const w = item.w, h = item.h, classMap = item.classMap, srcImg = item.srcImg;
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  const ctx = c.getContext('2d');
+  if (!srcImg) return c;
+  ctx.drawImage(srcImg, 0, 0);
+  if (layer === 'original') return c;
+
+  const id = ctx.getImageData(0, 0, w, h);
+  const d = id.data;
+  if (layer === 'composite') {
+    if (classMap) for (let p = 0; p < classMap.length; p++) maskPixel(d, p * 4, OVL_COLORS[classMap[p]]);
+    ctx.putImageData(id, 0, 0);
+    return c;
+  }
+  // Per-class cutout: keep real pixels for that class, transparent elsewhere
+  const want = layer === 'green' ? 1 : layer === 'sky' ? 2 : 0; // built = 0
+  if (classMap) for (let p = 0; p < classMap.length; p++) { if (classMap[p] !== want) d[p * 4 + 3] = 0; }
+  ctx.putImageData(id, 0, 0);
+  return c;
+}
+
+function canvasToBlob(canvas) {
+  return new Promise(res => canvas.toBlob(res, 'image/png'));
+}
+
+function triggerDownload(blob, filename) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+
+async function downloadCurrentLayer(layer) {
+  const lb = document.getElementById('gvi-lightbox');
+  const idx = Number(lb.dataset.idx);
+  const item = gviPreviewItems[idx];
+  if (!item) { showToast('No image selected', 'error'); return; }
+  const blob = await canvasToBlob(layerCanvas(item, layer));
+  triggerDownload(blob, `${idx + 1}_${safeName(item.label)}_${layer}.png`);
+  showToast(`Downloaded ${layer}.png`, 'success');
+}
+
+async function downloadAllLayers() {
+  if (!gviPreviewItems.length) { showToast('Nothing to download', 'info'); return; }
+  try {
+    showToast('Preparing ZIP…', 'info');
+    await loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js');
+  } catch (e) { showToast('Could not load ZIP library', 'error'); return; }
+
+  const zip = new JSZip();
+  const layers = ['original', 'composite', 'green', 'sky', 'built'];
+  for (let i = 0; i < gviPreviewItems.length; i++) {
+    const item = gviPreviewItems[i];
+    for (const layer of layers) {
+      const blob = await canvasToBlob(layerCanvas(item, layer));
+      zip.file(`${i + 1}_${safeName(item.label)}_${layer}.png`, blob);
+    }
+  }
+  const content = await zip.generateAsync({ type: 'blob' });
+  triggerDownload(content, `scene-composition-overlays-${new Date().toISOString().slice(0, 10)}.zip`);
+  showToast('ZIP downloaded ✓', 'success');
 }
 
 // Toggle mask/original from inside the lightbox (also syncs the panel)
